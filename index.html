@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>scxml — Live Statechart Editor</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: system-ui, -apple-system, sans-serif; background: #1a1a2e; color: #e0e0e0; }
+    header { padding: 1rem 2rem; background: #16213e; border-bottom: 1px solid #0f3460; }
+    header h1 { font-size: 1.25rem; font-weight: 600; }
+    header h1 span { color: #e94560; }
+    header p { font-size: 0.8rem; color: #888; margin-top: 0.25rem; }
+    .container { display: flex; height: calc(100vh - 4rem); }
+    .editor-pane { width: 35%; display: flex; flex-direction: column; border-right: 1px solid #0f3460; }
+    .viz-pane { flex: 1; display: flex; flex-direction: column; }
+    .sim-pane { width: 220px; display: flex; flex-direction: column; border-left: 1px solid #0f3460; }
+    .pane-header { padding: 0.5rem 1rem; background: #16213e; font-size: 0.75rem; font-weight: 600;
+                   text-transform: uppercase; letter-spacing: 0.05em; color: #888;
+                   display: flex; justify-content: space-between; align-items: center; }
+    textarea { flex: 1; padding: 1rem; background: #0a0a1a; color: #a8d8ea; border: none;
+               font-family: 'JetBrains Mono', 'Fira Code', monospace; font-size: 0.85rem;
+               resize: none; line-height: 1.5; tab-size: 2; }
+    textarea:focus { outline: none; }
+    #graph { flex: 1; overflow: auto; display: flex; align-items: center; justify-content: center;
+             background: #0f0f23; }
+    #graph svg { max-width: 100%; max-height: 100%; }
+    .status { padding: 0.5rem 1rem; font-size: 0.75rem; min-height: 2rem; }
+    .status.ok { color: #2ecc71; background: #0a1a0a; }
+    .status.error { color: #e94560; background: #1a0a0a; }
+    .status.loading { color: #f0c040; background: #1a1a0a; }
+    .tab-bar { display: flex; gap: 0; }
+    .tab { padding: 0.4rem 1rem; font-size: 0.75rem; cursor: pointer; background: #0f0f23;
+           color: #666; border: none; border-bottom: 2px solid transparent; }
+    .tab.active { color: #a8d8ea; border-bottom-color: #e94560; background: #1a1a2e; }
+    .examples { display: flex; gap: 0.5rem; }
+    .examples button { background: #0f3460; color: #a8d8ea; border: none; padding: 0.25rem 0.5rem;
+                       font-size: 0.7rem; border-radius: 3px; cursor: pointer; }
+    .examples button:hover { background: #1a4a80; }
+    #mermaid-output { flex: 1; overflow: auto; padding: 1rem; background: #0a0a1a; color: #a8d8ea;
+                      font-family: monospace; font-size: 0.8rem; white-space: pre; display: none; }
+    #dot-output { flex: 1; overflow: auto; padding: 1rem; background: #0a0a1a; color: #a8d8ea;
+                  font-family: monospace; font-size: 0.8rem; white-space: pre; display: none; }
+
+    /* ── Simulation pane ─────────────────────────────────────────────── */
+    .sim-content { flex: 1; overflow-y: auto; padding: 0.75rem; display: flex;
+                   flex-direction: column; gap: 0.75rem; }
+    .sim-current { background: #16213e; border-radius: 6px; padding: 0.75rem; text-align: center; }
+    .sim-current .state-name { font-size: 1.1rem; font-weight: 700; color: #a8d8ea;
+                                font-family: monospace; }
+    .sim-current .state-label { font-size: 0.65rem; color: #666; text-transform: uppercase;
+                                 letter-spacing: 0.08em; margin-bottom: 0.25rem; }
+    .sim-current.final .state-name { color: #2ecc71; }
+    .sim-events { display: flex; flex-direction: column; gap: 0.35rem; }
+    .sim-events-label { font-size: 0.65rem; color: #666; text-transform: uppercase;
+                        letter-spacing: 0.08em; }
+    .event-btn { background: #0f3460; color: #a8d8ea; border: none; padding: 0.5rem 0.75rem;
+                 font-size: 0.8rem; font-family: monospace; border-radius: 4px; cursor: pointer;
+                 text-align: left; transition: background 0.15s; }
+    .event-btn:hover { background: #1a5a90; }
+    .event-btn .guard { color: #f0c040; font-size: 0.7rem; }
+    .event-btn .target { color: #666; font-size: 0.7rem; float: right; }
+    .event-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+    .sim-history { flex: 1; overflow-y: auto; }
+    .sim-history-label { font-size: 0.65rem; color: #666; text-transform: uppercase;
+                         letter-spacing: 0.08em; margin-bottom: 0.35rem; }
+    .history-entry { font-size: 0.7rem; font-family: monospace; padding: 0.2rem 0;
+                     color: #888; border-bottom: 1px solid #0f0f23; }
+    .history-entry .from { color: #e94560; }
+    .history-entry .event { color: #a8d8ea; }
+    .history-entry .to { color: #2ecc71; }
+    .sim-actions { display: flex; gap: 0.5rem; padding-top: 0.5rem; border-top: 1px solid #0f3460; }
+    .sim-actions button { flex: 1; background: #0f3460; color: #a8d8ea; border: none;
+                          padding: 0.4rem; font-size: 0.7rem; border-radius: 3px; cursor: pointer; }
+    .sim-actions button:hover { background: #1a4a80; }
+    .sim-no-events { color: #666; font-size: 0.75rem; font-style: italic; padding: 0.5rem 0; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1><span>scxml</span> — Live Statechart Editor</h1>
+    <p>Edit W3C SCXML, see the statechart rendered instantly. Send events to simulate transitions. All client-side via WebAssembly.</p>
+  </header>
+
+  <div class="container">
+    <div class="editor-pane">
+      <div class="pane-header">
+        <span>SCXML Source</span>
+        <div class="examples">
+          <button onclick="loadExample('simple')">Simple</button>
+          <button onclick="loadExample('npa')">NPA</button>
+          <button onclick="loadExample('settlement')">Settlement</button>
+          <button onclick="loadExample('parallel')">Parallel</button>
+        </div>
+      </div>
+      <textarea id="editor" spellcheck="false"></textarea>
+      <div id="status" class="status loading">Loading WebAssembly...</div>
+    </div>
+
+    <div class="viz-pane">
+      <div class="pane-header">
+        <div class="tab-bar">
+          <button class="tab active" onclick="showTab('graph')">Graph</button>
+          <button class="tab" onclick="showTab('dot')">DOT</button>
+          <button class="tab" onclick="showTab('mermaid')">Mermaid</button>
+        </div>
+      </div>
+      <div id="graph"></div>
+      <pre id="dot-output"></pre>
+      <pre id="mermaid-output"></pre>
+    </div>
+
+    <div class="sim-pane">
+      <div class="pane-header">Simulate</div>
+      <div class="sim-content">
+        <div id="sim-current" class="sim-current">
+          <div class="state-label">Current State</div>
+          <div class="state-name" id="sim-state-name">—</div>
+        </div>
+
+        <div>
+          <div class="sim-events-label">Available Events</div>
+          <div class="sim-events" id="sim-events"></div>
+        </div>
+
+        <div class="sim-history">
+          <div class="sim-history-label">Transition History</div>
+          <div id="sim-history"></div>
+        </div>
+
+        <div class="sim-actions">
+          <button onclick="simReset()">Reset</button>
+          <button onclick="simToggleGuards()">
+            Guards: <span id="guard-mode">pass all</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- viz.js for DOT → SVG rendering -->
+  <script src="https://unpkg.com/@viz-js/viz@3.11.0/lib/viz-standalone.js"></script>
+
+  <script type="module">
+    // ── State ─────────────────────────────────────────────────────────────
+    let wasm = null;
+    let currentChart = null;   // parsed flat data { states, transitions }
+    let currentJson = null;    // raw JSON string from WASM
+    let simState = null;       // current simulation state id
+    let simHistory = [];       // [ { from, event, to }, ... ]
+    let guardsPass = true;     // toggle: do guards pass?
+
+    // ── WASM loading ──────────────────────────────────────────────────────
+    async function initWasm() {
+      try {
+        const mod = await import('./pkg/scxml.js');
+        await mod.default();
+        wasm = mod;
+        document.getElementById('status').className = 'status ok';
+        document.getElementById('status').textContent = 'Ready';
+        loadExample('simple');
+      } catch (e) {
+        document.getElementById('status').className = 'status error';
+        document.getElementById('status').textContent =
+          'WASM not built. Run: ./scripts/build-wasm-package.sh --scope gnomes --sync-demo';
+        console.error('WASM load failed:', e);
+      }
+    }
+
+    // ── Examples ──────────────────────────────────────────────────────────
+    const EXAMPLES = {
+      simple: `<scxml xmlns="http://www.w3.org/2005/07/scxml" version="1.0" initial="draft">
+  <state id="draft">
+    <transition event="submit" target="review"/>
+  </state>
+  <state id="review">
+    <transition event="approve" target="done" cond="manager_ok"/>
+    <transition event="reject" target="draft"/>
+  </state>
+  <final id="done"/>
+</scxml>`,
+
+      npa: `<scxml xmlns="http://www.w3.org/2005/07/scxml" version="1.0"
+       name="new-product-approval" initial="draft">
+  <state id="draft">
+    <transition event="submit" target="initial_review" cond="has_documents"/>
+  </state>
+  <state id="initial_review">
+    <transition event="approve" target="legal_review" cond="approval.product"/>
+    <transition event="reject" target="draft"/>
+  </state>
+  <state id="legal_review">
+    <transition event="approve" target="risk_review" cond="approval.legal"/>
+    <transition event="reject" target="draft"/>
+  </state>
+  <state id="risk_review">
+    <transition event="approve" target="committee" cond="approval.risk"/>
+    <transition event="reject" target="draft"/>
+  </state>
+  <state id="committee">
+    <transition event="approve" target="approved" cond="approval.committee"/>
+    <transition event="reject" target="draft"/>
+  </state>
+  <state id="approved">
+    <transition event="release" target="released"/>
+  </state>
+  <final id="released"/>
+</scxml>`,
+
+      settlement: `<scxml xmlns="http://www.w3.org/2005/07/scxml" version="1.0"
+       name="settlement" initial="created">
+  <state id="created">
+    <transition event="instruct" target="instructed"/>
+    <transition event="cancel" target="cancelled"/>
+  </state>
+  <state id="instructed">
+    <transition event="match" target="matched"/>
+    <transition event="fail" target="failed"/>
+    <transition event="cancel" target="cancelled"/>
+    <transition event="auto_fail" target="failed" delay="PT48H"/>
+  </state>
+  <state id="matched">
+    <transition event="settle" target="settled"/>
+    <transition event="fail" target="failed"/>
+  </state>
+  <state id="failed">
+    <transition event="retry" target="instructed"/>
+    <transition event="cancel" target="cancelled"/>
+  </state>
+  <final id="settled"/>
+  <final id="cancelled"/>
+</scxml>`,
+
+      parallel: `<scxml xmlns="http://www.w3.org/2005/07/scxml" version="1.0"
+       name="onboarding" initial="checking">
+  <parallel id="checking">
+    <state id="credit" initial="credit_pending">
+      <state id="credit_pending">
+        <transition event="credit_pass" target="credit_ok"/>
+        <transition event="credit_fail" target="credit_rejected"/>
+      </state>
+      <final id="credit_ok"/>
+      <final id="credit_rejected"/>
+    </state>
+    <state id="aml" initial="aml_pending">
+      <state id="aml_pending">
+        <transition event="aml_clear" target="aml_ok"/>
+        <transition event="aml_flag" target="aml_review"/>
+      </state>
+      <state id="aml_review">
+        <transition event="aml_clear" target="aml_ok"/>
+        <transition event="aml_reject" target="aml_rejected"/>
+      </state>
+      <final id="aml_ok"/>
+      <final id="aml_rejected"/>
+    </state>
+  </parallel>
+</scxml>`,
+    };
+
+    window.loadExample = function(name) {
+      document.getElementById('editor').value = EXAMPLES[name] || EXAMPLES.simple;
+      render();
+    };
+
+    // ── Rendering ────────────────────────────────────────────────────────
+    let debounceTimer = null;
+
+    function render() {
+      if (!wasm) return;
+
+      const xml = document.getElementById('editor').value;
+      const status = document.getElementById('status');
+      const graphDiv = document.getElementById('graph');
+      const dotPre = document.getElementById('dot-output');
+      const mermaidPre = document.getElementById('mermaid-output');
+
+      try {
+        currentJson = wasm.parseXml(xml);
+        wasm.validate(currentJson);
+
+        const flat = wasm.flatten(currentJson);
+        currentChart = JSON.parse(flat);
+
+        const dot = wasm.toDot(currentJson);
+        dotPre.textContent = dot;
+        mermaidPre.textContent = generateMermaid(currentChart);
+
+        status.className = 'status ok';
+        const parsed = JSON.parse(currentJson);
+        status.textContent = `Valid: ${currentChart.states.length} states, ${currentChart.transitions.length} transitions`;
+        if (parsed.name) status.textContent += ` — ${parsed.name}`;
+
+        // Reset simulation on chart change.
+        const initial = parsed.initial || currentChart.states[0]?.id;
+        simState = initial;
+        simHistory = [];
+        updateSimUI();
+        renderGraph(dot);
+
+      } catch (e) {
+        status.className = 'status error';
+        status.textContent = String(e);
+        graphDiv.innerHTML = '';
+        currentChart = null;
+        currentJson = null;
+        updateSimUI();
+      }
+    }
+
+    function renderGraph(dot) {
+      const graphDiv = document.getElementById('graph');
+      Viz.instance().then(viz => {
+        const svg = viz.renderSVGElement(dot);
+        graphDiv.innerHTML = '';
+        graphDiv.appendChild(svg);
+        highlightCurrentState();
+      });
+    }
+
+    function generateMermaid(data) {
+      let out = 'stateDiagram-v2\n';
+      const initial = data.states.find(s => s.initial);
+      if (initial) out += `  [*] --> ${initial.id}\n`;
+      for (const s of data.states) {
+        if (s.kind === 'final') out += `  ${s.id} --> [*]\n`;
+      }
+      for (const t of data.transitions) {
+        const label = [t.event, t.guard ? `[${t.guard}]` : ''].filter(Boolean).join(' ');
+        out += label
+          ? `  ${t.source} --> ${t.target} : ${label}\n`
+          : `  ${t.source} --> ${t.target}\n`;
+      }
+      return out;
+    }
+
+    // ── Graph highlighting ───────────────────────────────────────────────
+    function highlightCurrentState() {
+      if (!simState) return;
+      const graphDiv = document.getElementById('graph');
+      const svg = graphDiv.querySelector('svg');
+      if (!svg) return;
+
+      // Reset all nodes.
+      svg.querySelectorAll('.node').forEach(node => {
+        node.querySelectorAll('polygon, ellipse').forEach(shape => {
+          shape.removeAttribute('data-orig-stroke');
+          shape.setAttribute('stroke', shape.getAttribute('stroke') || 'none');
+          shape.setAttribute('stroke-width', '1');
+        });
+      });
+
+      // Find and highlight the active state node.
+      svg.querySelectorAll('.node').forEach(node => {
+        const title = node.querySelector('title');
+        if (title && title.textContent.trim() === simState) {
+          node.querySelectorAll('polygon, ellipse').forEach(shape => {
+            shape.setAttribute('stroke', '#f0c040');
+            shape.setAttribute('stroke-width', '3');
+          });
+        }
+      });
+    }
+
+    // ── Simulation ───────────────────────────────────────────────────────
+    function getAvailableTransitions() {
+      if (!currentChart || !simState) return [];
+      return currentChart.transitions.filter(t => t.source === simState);
+    }
+
+    function isFinalState() {
+      if (!currentChart || !simState) return false;
+      const s = currentChart.states.find(s => s.id === simState);
+      return s && s.kind === 'final';
+    }
+
+    window.simSendEvent = function(event, target, guard) {
+      if (!simState || isFinalState()) return;
+
+      // Check guard
+      if (guard && !guardsPass) {
+        const status = document.getElementById('status');
+        status.className = 'status error';
+        status.textContent = `Guard blocked: ${guard}`;
+        setTimeout(() => {
+          status.className = 'status ok';
+          status.textContent = `State: ${simState}`;
+        }, 1500);
+        return;
+      }
+
+      const from = simState;
+      simState = target;
+      simHistory.push({ from, event, to: target });
+      updateSimUI();
+      highlightCurrentState();
+    };
+
+    window.simReset = function() {
+      if (!currentChart) return;
+      const parsed = JSON.parse(currentJson);
+      simState = parsed.initial || currentChart.states[0]?.id;
+      simHistory = [];
+      updateSimUI();
+      highlightCurrentState();
+    };
+
+    window.simToggleGuards = function() {
+      guardsPass = !guardsPass;
+      document.getElementById('guard-mode').textContent = guardsPass ? 'pass all' : 'block all';
+      updateSimUI();
+    };
+
+    function updateSimUI() {
+      const stateNameEl = document.getElementById('sim-state-name');
+      const currentEl = document.getElementById('sim-current');
+      const eventsEl = document.getElementById('sim-events');
+      const historyEl = document.getElementById('sim-history');
+
+      // Current state.
+      if (!simState || !currentChart) {
+        stateNameEl.textContent = '—';
+        currentEl.classList.remove('final');
+        eventsEl.innerHTML = '<div class="sim-no-events">No chart loaded</div>';
+        historyEl.innerHTML = '';
+        return;
+      }
+
+      stateNameEl.textContent = simState;
+      const isFinal = isFinalState();
+      currentEl.classList.toggle('final', isFinal);
+
+      // Available events.
+      if (isFinal) {
+        eventsEl.innerHTML = '<div class="sim-no-events">Final state reached</div>';
+      } else {
+        const transitions = getAvailableTransitions();
+        if (transitions.length === 0) {
+          eventsEl.innerHTML = '<div class="sim-no-events">No transitions available</div>';
+        } else {
+          eventsEl.innerHTML = transitions.map(t => {
+            const guardHtml = t.guard ? `<span class="guard"> [${t.guard}]</span>` : '';
+            const blocked = t.guard && !guardsPass;
+            return `<button class="event-btn" ${blocked ? 'disabled' : ''}
+                     onclick="simSendEvent('${t.event || ''}', '${t.target}', ${t.guard ? `'${t.guard}'` : 'null'})">
+              ${t.event || '(auto)'}${guardHtml}
+              <span class="target">${t.target}</span>
+            </button>`;
+          }).join('');
+        }
+      }
+
+      // History.
+      if (simHistory.length === 0) {
+        historyEl.innerHTML = '<div class="sim-no-events">No transitions yet</div>';
+      } else {
+        historyEl.innerHTML = simHistory.map((h, i) =>
+          `<div class="history-entry">
+            <span class="from">${h.from}</span>
+            <span class="event"> —${h.event}→ </span>
+            <span class="to">${h.to}</span>
+          </div>`
+        ).join('');
+        // Scroll to bottom.
+        historyEl.scrollTop = historyEl.scrollHeight;
+      }
+    }
+
+    // ── Tab switching ────────────────────────────────────────────────────
+    window.showTab = function(tab) {
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      event.target.classList.add('active');
+      document.getElementById('graph').style.display = tab === 'graph' ? 'flex' : 'none';
+      document.getElementById('dot-output').style.display = tab === 'dot' ? 'block' : 'none';
+      document.getElementById('mermaid-output').style.display = tab === 'mermaid' ? 'block' : 'none';
+    };
+
+    // ── Editor input handling ────────────────────────────────────────────
+    document.getElementById('editor').addEventListener('input', () => {
+      clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(render, 300);
+    });
+
+    // ── Init ─────────────────────────────────────────────────────────────
+    initWasm();
+  </script>
+</body>
+</html>
