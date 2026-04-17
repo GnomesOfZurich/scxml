@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Trade settlement state machine.
+  Demonstrates deadline-triggered transitions (auto-fail after 48h).
+-->
+<scxml xmlns="http://www.w3.org/2005/07/scxml"
+       version="1.0" name="settlement" initial="created">
+
+    <state id="created">
+        <transition event="instruct" target="instructed"/>
+        <transition event="cancel" target="cancelled"/>
+    </state>
+
+    <state id="instructed">
+        <transition event="match" target="matched"/>
+        <transition event="fail" target="failed"/>
+        <transition event="cancel" target="cancelled"/>
+        <transition event="auto_fail" target="failed" delay="PT48H"/>
+    </state>
+
+    <state id="matched">
+        <transition event="settle" target="settled"/>
+        <transition event="fail" target="failed"/>
+    </state>
+
+    <state id="failed">
+        <transition event="retry" target="instructed"/>
+        <transition event="cancel" target="cancelled"/>
+    </state>
+
+    <final id="settled"/>
+    <final id="cancelled"/>
+</scxml>

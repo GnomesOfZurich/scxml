@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Client onboarding with parallel verification gates.
+
+  Three independent checks (KYC, credit, AML) run in parallel.
+  The parallel state exits only when all regions reach a final state,
+  at which point the "all_cleared" guard on the parent transition fires.
+  If any region rejects, the parallel state's reject transition exits early.
+
+  After the parallel gate: a sequential committee review with quorum,
+  then activation. Standard pattern for retail and private banking onboarding.
+-->
+<scxml xmlns="http://www.w3.org/2005/07/scxml"
+       xmlns:gnomes="http://gnomes.dev/scxml"
+       version="1.0" name="onboarding-approval" initial="intake">
+
+    <datamodel>
+        <data id="client_id"/>
+        <data id="risk_rating"/>
+    </datamodel>
+
+    <state id="intake">
+        <transition event="submit" target="parallel_checks" cond="has_required_documents"/>
+        <transition event="cancel" target="rejected"/>
+    </state>
+
+    <!-- Parallel gate: all three checks must complete before proceeding. -->
+    <parallel id="parallel_checks">
+
+        <state id="kyc" initial="kyc_pending">
+            <state id="kyc_pending">
+                <transition event="kyc_pass" target="kyc_ok"/>
+                <transition event="kyc_fail" target="kyc_rejected"/>
+            </state>
+            <final id="kyc_ok"/>
+            <final id="kyc_rejected"/>
+        </state>
+
+        <state id="credit" initial="credit_pending">
+            <state id="credit_pending">
+                <transition event="credit_pass" target="credit_ok"/>
+                <transition event="credit_fail" target="credit_rejected"/>
+            </state>
+            <final id="credit_ok"/>
+            <final id="credit_rejected"/>
+        </state>
+
+        <state id="aml" initial="aml_pending">
+            <state id="aml_pending">
+                <transition event="aml_clear" target="aml_ok"/>
+                <transition event="aml_flag" target="aml_review"/>
+            </state>
+            <state id="aml_review">
+                <transition event="aml_clear" target="aml_ok"/>
+                <transition event="aml_reject" target="aml_rejected"/>
+            </state>
+            <final id="aml_ok"/>
+            <final id="aml_rejected"/>
+        </state>
+
+        <!-- Exit the parallel gate when all regions are done and checks passed. -->
+        <transition event="checks_complete" target="committee_review"
+                    cond="approval.all_checks_passed"/>
+
+        <!-- Early exit if any check is rejected. -->
+        <transition event="checks_failed" target="rejected"/>
+
+        <!-- Timeout: if checks take too long, reject. -->
+        <transition event="timeout" target="rejected" delay="P14D"/>
+    </parallel>
+
+    <!-- Sequential committee review after the parallel gate. -->
+    <state id="committee_review">
+        <transition event="approve" target="approved"
+                    cond="approval.committee" gnomes:quorum="2"/>
+        <transition event="reject" target="rejected"/>
+    </state>
+
+    <state id="approved">
+        <transition event="activate" target="active"/>
+    </state>
+
+    <final id="active"/>
+    <final id="rejected"/>
+</scxml>

@@ -1,0 +1,31 @@
+{
+  "id": "document-lifecycle",
+  "initial": "draft",
+  "states": {
+    "draft": {
+      "on": {
+        "submit": "submitted"
+      }
+    },
+    "submitted": {
+      "on": {
+        "start_review": "review"
+      }
+    },
+    "review": {
+      "on": {
+        "approve": {
+          "target": "approved",
+          "guard": "all_reviewers_complete"
+        },
+        "request_changes": "draft"
+      }
+    },
+    "approved": {
+      "on": {
+        "archive": "archived"
+      }
+    },
+    "archived": { "type": "final" }
+  }
+}

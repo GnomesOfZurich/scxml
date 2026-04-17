@@ -1,0 +1,67 @@
+[package]
+name = "scxml"
+version = "0.1.0"
+edition = "2024"
+authors = ["Gnomes"]
+license = "MIT OR Apache-2.0"
+description = "W3C SCXML statechart library — parse, validate, export, and simulate Harel statecharts. Framework-agnostic, WASM-ready, rkyv zero-copy."
+readme = "README.md"
+repository = "https://github.com/GnomesOfZurich/scxml"
+homepage = "https://github.com/GnomesOfZurich/scxml"
+documentation = "https://docs.rs/scxml"
+keywords = ["scxml", "statechart", "state-machine", "workflow", "xstate"]
+categories = ["data-structures", "parser-implementations", "wasm", "visualization", "simulation"]
+rust-version = "1.87"
+exclude = ["demo/", "pkg/", "target/", ".github/", ".claude/"]
+
+[lib]
+# cdylib is required for wasm-pack WASM builds.
+# rlib is the standard Rust library target for native consumers.
+# Both are always declared — Cargo only builds the targets relevant to the
+# current build command (cdylib is ignored by `cargo test` and native `cargo build`).
+crate-type = ["cdylib", "rlib"]
+
+[features]
+default = ["xml", "json", "validate", "export"]
+xml = ["dep:quick-xml"]
+json = ["dep:serde_json"]
+validate = []
+export = []
+dot = ["export"]
+flatten = ["export"]
+rkyv = ["dep:rkyv", "compact_str/rkyv"]
+xstate = ["dep:serde_json"]
+wasm = ["dep:wasm-bindgen", "dep:js-sys", "xml", "json", "validate", "export"]
+
+[dependencies]
+compact_str = { version = "0.9.0", features = ["serde"] }
+serde = { version = "1.0.228", features = ["derive"] }
+thiserror = "2.0.18"
+
+# Optional — XML parsing
+quick-xml = { version = "0.39.2", optional = true }
+
+# Optional — JSON parsing/export
+serde_json = { version = "1.0.149", optional = true }
+
+# Optional — zero-copy serialization
+rkyv = { version = "0.8.15", optional = true }
+
+# Optional — WebAssembly
+wasm-bindgen = { version = "0.2.118", optional = true }
+js-sys = { version = "0.3.95", optional = true }
+
+[dev-dependencies]
+criterion = { version = "0.8.2", features = ["html_reports"] }
+proptest = "1.11.0"
+serde_json = "1.0.149"
+pretty_assertions = "1.4.1"
+
+[[bench]]
+name = "statechart"
+harness = false
+
+[[bench]]
+name = "rkyv_bench"
+harness = false
+required-features = ["rkyv"]

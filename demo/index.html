@@ -1,0 +1,665 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>scxml — Live Statechart Editor</title>
+  <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        html, body { height: 100%; }
+        body { font-family: system-ui, -apple-system, sans-serif; background: #1a1a2e; color: #e0e0e0;
+          min-height: 100dvh; display: flex; flex-direction: column; overflow: hidden; }
+    header { padding: 1rem 2rem; background: #16213e; border-bottom: 1px solid #0f3460; }
+    header { display: flex; justify-content: space-between; align-items: center; }
+    header h1 { font-size: 1.25rem; font-weight: 600; }
+    header h1 span { color: #e94560; }
+    header p { font-size: 0.8rem; color: #888; margin-top: 0.25rem; }
+    .header-meta { display: flex; gap: 1.2rem; align-items: center; }
+    .mobile-status { display: none; font-size: 0.7rem; color: #7f8aa3; letter-spacing: 0.02em;
+             white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .header-brand { font-size: 0.7rem; color: #555; text-decoration: none; letter-spacing: 0.06em; }
+    .header-brand:hover { color: #888; }
+    .mobile-pane-bar { display: none; gap: 0.5rem; padding: 0.75rem 1rem; background: #11182f;
+               border-bottom: 1px solid #0f3460; }
+    .mobile-pane-tab { flex: 1; border: none; border-radius: 999px; background: #0f0f23; color: #7f8aa3;
+               padding: 0.55rem 0.8rem; font-size: 0.78rem; font-weight: 700; letter-spacing: 0.04em;
+               text-transform: uppercase; cursor: pointer; }
+    .mobile-pane-tab.active { background: #0f3460; color: #d7e6ef; }
+    .container { display: flex; flex: 1; min-height: 0; }
+    .editor-pane { width: 35%; display: flex; flex-direction: column; border-right: 1px solid #0f3460; min-height: 0; }
+    .viz-pane { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+    .sim-pane { width: 220px; display: flex; flex-direction: column; border-left: 1px solid #0f3460; min-height: 0; }
+    .pane-header { padding: 0.5rem 1rem; background: #16213e; font-size: 0.75rem; font-weight: 600;
+                   text-transform: uppercase; letter-spacing: 0.05em; color: #888;
+                   display: flex; justify-content: space-between; align-items: center; }
+    textarea { flex: 1; padding: 1rem; background: #0a0a1a; color: #a8d8ea; border: none;
+               font-family: 'JetBrains Mono', 'Fira Code', monospace; font-size: 0.85rem;
+               resize: none; line-height: 1.5; tab-size: 2; }
+    textarea:focus { outline: none; }
+    #graph { flex: 1; overflow: auto; display: flex; align-items: center; justify-content: center;
+             background: #0f0f23; }
+    #graph svg { max-width: 100%; max-height: 100%; }
+    .status { padding: 0.5rem 1rem; font-size: 0.75rem; min-height: 2rem; }
+    .status.ok { color: #2ecc71; background: #0a1a0a; }
+    .status.error { color: #e94560; background: #1a0a0a; }
+    .status.loading { color: #f0c040; background: #1a1a0a; }
+    .tab-bar { display: flex; gap: 0; }
+    .tab { padding: 0.4rem 1rem; font-size: 0.75rem; cursor: pointer; background: #0f0f23;
+           color: #666; border: none; border-bottom: 2px solid transparent; }
+    .tab.active { color: #a8d8ea; border-bottom-color: #e94560; background: #1a1a2e; }
+        .viz-meta { font-size: 0.68rem; color: #666; text-transform: none; letter-spacing: 0.02em; }
+    .examples { display: flex; gap: 0.5rem; justify-content: flex-end; }
+    .examples button { background: #0f3460; color: #a8d8ea; border: none; padding: 0.25rem 0.5rem;
+                       font-size: 0.7rem; border-radius: 3px; cursor: pointer; }
+    .examples button:hover { background: #1a4a80; }
+    .editor-controls { display: flex; gap: 0.5rem; align-items: center; }
+    .editor-reset { background: #0f3460; color: #a8d8ea; border: none; padding: 0.25rem 0.55rem;
+            font-size: 0.68rem; border-radius: 3px; cursor: pointer; }
+    .editor-reset:hover { background: #1a4a80; }
+    .editor-status-bar { display: flex; justify-content: space-between; align-items: center; gap: 0.75rem; }
+    .editor-status-bar .status { flex: 1; }
+    #mermaid-output { flex: 1; overflow: auto; padding: 1rem; background: #0a0a1a; color: #a8d8ea;
+                      font-family: monospace; font-size: 0.8rem; white-space: pre; display: none; }
+    #dot-output { flex: 1; overflow: auto; padding: 1rem; background: #0a0a1a; color: #a8d8ea;
+                  font-family: monospace; font-size: 0.8rem; white-space: pre; display: none; }
+    #json-output { flex: 1; overflow: auto; padding: 1rem; background: #0a0a1a; color: #a8d8ea;
+             font-family: monospace; font-size: 0.8rem; white-space: pre; display: none; }
+        #diff-output { flex: 1; overflow: auto; padding: 1rem; background: #0a0a1a; color: #d7e6ef;
+             font-size: 0.82rem; display: none; }
+        .diff-empty { color: #666; font-style: italic; }
+        .diff-list { display: flex; flex-direction: column; gap: 0.75rem; }
+        .diff-entry { border: 1px solid #1d2b4b; border-radius: 6px; background: #11162a; padding: 0.75rem; }
+        .diff-header { display: flex; justify-content: space-between; align-items: center; gap: 1rem; margin-bottom: 0.5rem; }
+        .diff-kind { font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.08em; font-weight: 700; }
+        .diff-kind.changed { color: #f0c040; }
+        .diff-kind.added { color: #2ecc71; }
+        .diff-kind.removed { color: #e94560; }
+        .diff-path { color: #a8d8ea; font-family: monospace; font-size: 0.75rem; }
+        .diff-values { display: grid; gap: 0.45rem; }
+        .diff-value { border-radius: 4px; padding: 0.45rem 0.55rem; background: #0a0f1d; }
+        .diff-value-label { display: block; font-size: 0.66rem; text-transform: uppercase; letter-spacing: 0.08em; color: #666; margin-bottom: 0.2rem; }
+        .diff-value code { color: #d7e6ef; font-family: monospace; white-space: pre-wrap; word-break: break-word; }
+
+    /* ── Simulation pane ─────────────────────────────────────────────── */
+    .sim-content { flex: 1; overflow-y: auto; padding: 0.75rem; display: flex;
+                   flex-direction: column; gap: 0.75rem; }
+    .sim-current { background: #16213e; border-radius: 6px; padding: 0.75rem; text-align: center; }
+    .sim-current .state-name { font-size: 1.1rem; font-weight: 700; color: #a8d8ea;
+                                font-family: monospace; }
+    .sim-current .state-label { font-size: 0.65rem; color: #666; text-transform: uppercase;
+                                 letter-spacing: 0.08em; margin-bottom: 0.25rem; }
+    .sim-current.final .state-name { color: #2ecc71; }
+    .sim-events { display: flex; flex-direction: column; gap: 0.35rem; }
+    .sim-events-label { font-size: 0.65rem; color: #666; text-transform: uppercase;
+                        letter-spacing: 0.08em; }
+    .event-btn { background: #0f3460; color: #a8d8ea; border: none; padding: 0.5rem 0.75rem;
+                 font-size: 0.8rem; font-family: monospace; border-radius: 4px; cursor: pointer;
+                 text-align: left; transition: background 0.15s; }
+    .event-btn:hover { background: #1a5a90; }
+    .event-btn .guard { color: #f0c040; font-size: 0.7rem; }
+    .event-btn .target { color: #666; font-size: 0.7rem; float: right; }
+    .event-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+    .sim-history { flex: 1; overflow-y: auto; }
+    .sim-history-label { font-size: 0.65rem; color: #666; text-transform: uppercase;
+                         letter-spacing: 0.08em; margin-bottom: 0.35rem; }
+    .history-entry { font-size: 0.7rem; font-family: monospace; padding: 0.2rem 0;
+                     color: #888; border-bottom: 1px solid #0f0f23; }
+    .history-entry .from { color: #e94560; }
+    .history-entry .event { color: #a8d8ea; }
+    .history-entry .to { color: #2ecc71; }
+    .sim-actions { display: flex; gap: 0.5rem; padding-top: 0.5rem; border-top: 1px solid #0f3460; }
+    .sim-actions button { flex: 1; background: #0f3460; color: #a8d8ea; border: none;
+                          padding: 0.4rem; font-size: 0.7rem; border-radius: 3px; cursor: pointer; }
+    .sim-actions button:hover { background: #1a4a80; }
+    .sim-no-events { color: #666; font-size: 0.75rem; font-style: italic; padding: 0.5rem 0; }
+
+    @media (max-width: 980px) {
+      header { padding: 0.85rem 1rem; align-items: flex-start; flex-direction: column; gap: 0.65rem; }
+      .header-meta { width: 100%; justify-content: space-between; gap: 0.75rem; }
+      .mobile-status { display: block; flex: 1; min-width: 0; }
+      .mobile-pane-bar { display: flex; }
+      .container { position: relative; }
+      .editor-pane, .viz-pane, .sim-pane {
+        width: 100%;
+        border: none;
+        display: none;
+      }
+      .editor-pane.mobile-active, .viz-pane.mobile-active, .sim-pane.mobile-active {
+        display: flex;
+      }
+      .pane-header {
+        padding: 0.6rem 0.8rem;
+        flex-wrap: wrap;
+        gap: 0.6rem;
+      }
+      .examples, .tab-bar {
+        width: 100%;
+        justify-content: flex-start;
+        overflow-x: auto;
+        scrollbar-width: none;
+      }
+      .examples::-webkit-scrollbar, .tab-bar::-webkit-scrollbar { display: none; }
+      .examples button, .tab {
+        flex: 0 0 auto;
+      }
+      .editor-status-bar {
+        flex-wrap: wrap;
+      }
+      .editor-status-bar .status,
+      .editor-reset {
+        width: 100%;
+      }
+      .sim-content {
+        padding: 0.8rem;
+      }
+      #graph svg {
+        min-width: 640px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div>
+      <h1><span>scxml</span> — Live Statechart Editor</h1>
+      <p>Edit W3C SCXML, see the statechart rendered instantly. Send events to simulate transitions. All client-side via WebAssembly.</p>
+    </div>
+    <div class="header-meta">
+      <div id="mobile-status" class="mobile-status">View: Graph</div>
+      <a href="https://github.com/GnomesOfZurich/scxml" class="header-brand" target="_blank" rel="noopener">GitHub</a>
+      <a href="https://gnomes.ch" class="header-brand" target="_blank" rel="noopener">gnomes.ch</a>
+    </div>
+  </header>
+
+  <div class="mobile-pane-bar">
+    <button class="mobile-pane-tab" onclick="showMobilePane('editor', this)">Source</button>
+    <button class="mobile-pane-tab active" onclick="showMobilePane('viz', this)">View</button>
+    <button class="mobile-pane-tab" onclick="showMobilePane('sim', this)">Sim</button>
+  </div>
+
+  <div class="container">
+    <div class="editor-pane" id="editor-pane">
+      <div class="pane-header">
+        <span>SCXML Source</span>
+        <div class="editor-controls">
+          <div class="examples">
+            <button onclick="loadExample('document')">Document</button>
+            <button onclick="loadExample('npa')">NPA</button>
+            <button onclick="loadExample('settlement')">Settlement</button>
+            <button onclick="loadExample('parallel')">Parallel</button>
+            <button onclick="loadExample('onboarding')">Onboarding</button>
+          </div>
+        </div>
+      </div>
+      <textarea id="editor" spellcheck="false"></textarea>
+      <div class="editor-status-bar">
+        <div id="status" class="status loading">Loading WebAssembly...</div>
+        <button class="editor-reset" onclick="resetEditorToBaseline()" title="Restore the editor back to the loaded baseline SCXML">Restore Baseline</button>
+      </div>
+    </div>
+
+    <div class="viz-pane mobile-active" id="viz-pane">
+      <div class="pane-header">
+        <div class="tab-bar">
+          <button class="tab active" onclick="showTab('graph', this)">Graph</button>
+          <button class="tab" onclick="showTab('json', this)">JSON</button>
+          <button class="tab" onclick="showTab('dot', this)">DOT</button>
+          <button class="tab" onclick="showTab('mermaid', this)">Mermaid</button>
+          <button class="tab" onclick="showTab('diff', this)">Diff</button>
+        </div>
+        <div id="baseline-label" class="viz-meta">Baseline: none</div>
+      </div>
+      <div id="graph"></div>
+      <pre id="json-output"></pre>
+      <pre id="dot-output"></pre>
+      <pre id="mermaid-output"></pre>
+      <div id="diff-output"></div>
+    </div>
+
+    <div class="sim-pane" id="sim-pane">
+      <div class="pane-header">Simulate</div>
+      <div class="sim-content">
+        <div id="sim-current" class="sim-current">
+          <div class="state-label">Current State</div>
+          <div class="state-name" id="sim-state-name">—</div>
+        </div>
+
+        <div>
+          <div class="sim-events-label">Available Events</div>
+          <div class="sim-events" id="sim-events"></div>
+        </div>
+
+        <div class="sim-history">
+          <div class="sim-history-label">Transition History</div>
+          <div id="sim-history"></div>
+        </div>
+
+        <div class="sim-actions">
+          <button onclick="simReset()" title="Reset only the simulation state and transition history">Reset Simulation</button>
+          <button onclick="simToggleGuards()">
+            Guards: <span id="guard-mode">pass all</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- viz.js for DOT → SVG rendering -->
+  <script src="https://unpkg.com/@viz-js/viz@3.11.0/lib/viz-standalone.js"></script>
+
+  <script type="module">
+    // ── State ─────────────────────────────────────────────────────────────
+    let wasm = null;
+    let currentChart = null;   // parsed flat data { states, transitions }
+    let currentJson = null;    // raw JSON string from WASM
+    let baselineXml = null;    // frozen review baseline
+    let baselineName = null;   // label for the baseline
+    let currentDiff = [];      // structured diff entries from WASM
+    let simState = null;       // current simulation state id
+    let simHistory = [];       // [ { from, event, to }, ... ]
+    let guardsPass = true;     // toggle: do guards pass?
+    let currentViewTab = 'graph';
+    let currentMobilePane = 'viz';
+    const EXAMPLE_FILES = {
+      document: 'document_lifecycle.scxml',
+      npa: 'new_product_approval.scxml',
+      settlement: 'settlement.scxml',
+      parallel: 'parallel_checks.scxml',
+      onboarding: 'onboarding_approval.scxml',
+    };
+    const exampleCache = new Map();
+
+    // ── WASM loading ──────────────────────────────────────────────────────
+    async function initWasm() {
+      try {
+        const mod = await import('./pkg/scxml.js');
+        await mod.default();
+        wasm = mod;
+        document.getElementById('status').className = 'status ok';
+        document.getElementById('status').textContent = 'Ready';
+        await loadExample('document');
+      } catch (e) {
+        document.getElementById('status').className = 'status error';
+        document.getElementById('status').textContent =
+          'WASM not built. Run: ./scripts/build-wasm-package.sh --scope gnomes --sync-demo';
+        console.error('WASM load failed:', e);
+      }
+    }
+
+    // ── Examples ──────────────────────────────────────────────────────────
+    window.loadExample = async function(name) {
+      const fileName = EXAMPLE_FILES[name];
+      if (!fileName) return;
+
+      const status = document.getElementById('status');
+      status.className = 'status loading';
+      status.textContent = `Loading ${fileName}...`;
+
+      try {
+        let xml = exampleCache.get(fileName);
+        if (!xml) {
+          const response = await fetch(`./examples/${fileName}`);
+          if (!response.ok) {
+            throw new Error(`Could not load ${fileName}: ${response.status} ${response.statusText}`);
+          }
+          xml = await response.text();
+          exampleCache.set(fileName, xml);
+        }
+
+        document.getElementById('editor').value = xml;
+        baselineXml = xml;
+        baselineName = fileName;
+        updateBaselineLabel();
+        render();
+      } catch (e) {
+        status.className = 'status error';
+        status.textContent = String(e);
+        console.error('Example load failed:', e);
+      }
+    };
+
+    window.resetEditorToBaseline = function() {
+      if (!baselineXml) return;
+      document.getElementById('editor').value = baselineXml;
+      render();
+    };
+
+    // ── Rendering ────────────────────────────────────────────────────────
+    let debounceTimer = null;
+
+    function render() {
+      if (!wasm) return;
+
+      const xml = document.getElementById('editor').value;
+      const status = document.getElementById('status');
+      const graphDiv = document.getElementById('graph');
+      const jsonPre = document.getElementById('json-output');
+      const dotPre = document.getElementById('dot-output');
+      const mermaidPre = document.getElementById('mermaid-output');
+      const diffDiv = document.getElementById('diff-output');
+
+      try {
+        currentJson = wasm.parseXml(xml);
+        wasm.validate(currentJson);
+
+        const flat = wasm.flatten(currentJson);
+        currentChart = JSON.parse(flat);
+        const parsed = JSON.parse(currentJson);
+
+        const dot = wasm.toDot(currentJson);
+        const mermaid = wasm.toMermaid ? wasm.toMermaid(currentJson) : generateMermaid(currentChart);
+        jsonPre.textContent = JSON.stringify(parsed, null, 2);
+        dotPre.textContent = dot;
+        mermaidPre.textContent = mermaid;
+        currentDiff = computeDiff(xml);
+        renderDiff(diffDiv, currentDiff);
+
+        status.className = 'status ok';
+        status.textContent = `Valid: ${currentChart.states.length} states, ${currentChart.transitions.length} transitions`;
+        if (parsed.name) status.textContent += ` — ${parsed.name}`;
+
+        // Reset simulation on chart change.
+        const initial = parsed.initial || currentChart.states[0]?.id;
+        simState = initial;
+        simHistory = [];
+        updateSimUI();
+        renderGraph(dot);
+
+      } catch (e) {
+        status.className = 'status error';
+        status.textContent = String(e);
+        graphDiv.innerHTML = '';
+        jsonPre.textContent = '';
+        dotPre.textContent = '';
+        mermaidPre.textContent = '';
+        currentDiff = null;
+        renderDiff(diffDiv, null, String(e));
+        currentChart = null;
+        currentJson = null;
+        updateSimUI();
+      }
+    }
+
+    function renderGraph(dot) {
+      const graphDiv = document.getElementById('graph');
+      Viz.instance().then(viz => {
+        const svg = viz.renderSVGElement(dot);
+        graphDiv.innerHTML = '';
+        graphDiv.appendChild(svg);
+        highlightCurrentState();
+      });
+    }
+
+    function generateMermaid(data) {
+      let out = 'stateDiagram-v2\n';
+      const initial = data.states.find(s => s.initial);
+      if (initial) out += `  [*] --> ${initial.id}\n`;
+      for (const s of data.states) {
+        if (s.kind === 'final') out += `  ${s.id} --> [*]\n`;
+      }
+      for (const t of data.transitions) {
+        const label = [t.event, t.guard ? `[${t.guard}]` : ''].filter(Boolean).join(' ');
+        out += label
+          ? `  ${t.source} --> ${t.target} : ${label}\n`
+          : `  ${t.source} --> ${t.target}\n`;
+      }
+      return out;
+    }
+
+    function updateBaselineLabel() {
+      const label = document.getElementById('baseline-label');
+      label.textContent = baselineName ? `Baseline: ${baselineName}` : 'Baseline: none';
+      updateMobileStatus();
+    }
+
+    function formatExampleName(name) {
+      if (!name) return 'Untitled';
+      return name
+        .replace(/\.scxml$/i, '')
+        .replaceAll('_', ' ')
+        .replace(/\b\w/g, char => char.toUpperCase());
+    }
+
+    function updateMobileStatus() {
+      const status = document.getElementById('mobile-status');
+      if (!status) return;
+
+      const example = formatExampleName(baselineName);
+      let detail = 'View: Graph';
+
+      if (currentMobilePane === 'editor') {
+        detail = 'Source';
+      } else if (currentMobilePane === 'viz') {
+        detail = `View: ${currentViewTab.charAt(0).toUpperCase()}${currentViewTab.slice(1)}`;
+      } else if (currentMobilePane === 'sim') {
+        detail = `Sim · guards ${guardsPass ? 'pass all' : 'block all'}`;
+      }
+
+      status.textContent = `${example} · ${detail}`;
+    }
+
+    function computeDiff(currentXml) {
+      if (!baselineXml || !wasm || !wasm.xmlDiff) return [];
+      const raw = wasm.xmlDiff(baselineXml, currentXml);
+      return JSON.parse(raw);
+    }
+
+    function escapeHtml(value) {
+      return String(value)
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#39;');
+    }
+
+    function renderDiff(container, diffs, error = null) {
+      if (error) {
+        container.innerHTML = `<div class="diff-empty">Diff unavailable until the SCXML parses and validates. ${escapeHtml(error)}</div>`;
+        return;
+      }
+
+      if (!baselineXml) {
+        container.innerHTML = '<div class="diff-empty">Load an example to establish a baseline.</div>';
+        return;
+      }
+
+      if (!diffs || diffs.length === 0) {
+        container.innerHTML = '<div class="diff-empty">No changes from the loaded baseline.</div>';
+        return;
+      }
+
+      container.innerHTML = `<div class="diff-list">${diffs.map(renderDiffEntry).join('')}</div>`;
+    }
+
+    function renderDiffEntry(entry) {
+      const kindClass = entry.kind ? entry.kind.toLowerCase() : 'changed';
+      const values = [];
+
+      if (entry.old !== undefined) {
+        values.push(`<div class="diff-value"><span class="diff-value-label">Old</span><code>${escapeHtml(entry.old)}</code></div>`);
+      }
+      if (entry.new !== undefined) {
+        values.push(`<div class="diff-value"><span class="diff-value-label">New</span><code>${escapeHtml(entry.new)}</code></div>`);
+      }
+      if (entry.value !== undefined) {
+        values.push(`<div class="diff-value"><span class="diff-value-label">Value</span><code>${escapeHtml(entry.value)}</code></div>`);
+      }
+
+      return `<div class="diff-entry">
+        <div class="diff-header">
+          <span class="diff-kind ${kindClass}">${escapeHtml(entry.kind || 'Changed')}</span>
+          <span class="diff-path">${escapeHtml(entry.path || '')}</span>
+        </div>
+        <div class="diff-values">${values.join('')}</div>
+      </div>`;
+    }
+
+    // ── Graph highlighting ───────────────────────────────────────────────
+    function highlightCurrentState() {
+      if (!simState) return;
+      const graphDiv = document.getElementById('graph');
+      const svg = graphDiv.querySelector('svg');
+      if (!svg) return;
+
+      // Reset all nodes.
+      svg.querySelectorAll('.node').forEach(node => {
+        node.querySelectorAll('polygon, ellipse').forEach(shape => {
+          shape.removeAttribute('data-orig-stroke');
+          shape.setAttribute('stroke', shape.getAttribute('stroke') || 'none');
+          shape.setAttribute('stroke-width', '1');
+        });
+      });
+
+      // Find and highlight the active state node.
+      svg.querySelectorAll('.node').forEach(node => {
+        const title = node.querySelector('title');
+        if (title && title.textContent.trim() === simState) {
+          node.querySelectorAll('polygon, ellipse').forEach(shape => {
+            shape.setAttribute('stroke', '#f0c040');
+            shape.setAttribute('stroke-width', '3');
+          });
+        }
+      });
+    }
+
+    // ── Simulation ───────────────────────────────────────────────────────
+    function getAvailableTransitions() {
+      if (!currentChart || !simState) return [];
+      return currentChart.transitions.filter(t => t.source === simState);
+    }
+
+    function isFinalState() {
+      if (!currentChart || !simState) return false;
+      const s = currentChart.states.find(s => s.id === simState);
+      return s && s.kind === 'final';
+    }
+
+    window.simSendEvent = function(event, target, guard) {
+      if (!simState || isFinalState()) return;
+
+      // Check guard
+      if (guard && !guardsPass) {
+        const status = document.getElementById('status');
+        status.className = 'status error';
+        status.textContent = `Guard blocked: ${guard}`;
+        setTimeout(() => {
+          status.className = 'status ok';
+          status.textContent = `State: ${simState}`;
+        }, 1500);
+        return;
+      }
+
+      const from = simState;
+      simState = target;
+      simHistory.push({ from, event, to: target });
+      updateSimUI();
+      highlightCurrentState();
+    };
+
+    window.simReset = function() {
+      if (!currentChart) return;
+      const parsed = JSON.parse(currentJson);
+      simState = parsed.initial || currentChart.states[0]?.id;
+      simHistory = [];
+      updateSimUI();
+      highlightCurrentState();
+    };
+
+    window.simToggleGuards = function() {
+      guardsPass = !guardsPass;
+      document.getElementById('guard-mode').textContent = guardsPass ? 'pass all' : 'block all';
+      updateMobileStatus();
+      updateSimUI();
+    };
+
+    function updateSimUI() {
+      const stateNameEl = document.getElementById('sim-state-name');
+      const currentEl = document.getElementById('sim-current');
+      const eventsEl = document.getElementById('sim-events');
+      const historyEl = document.getElementById('sim-history');
+
+      // Current state.
+      if (!simState || !currentChart) {
+        stateNameEl.textContent = '—';
+        currentEl.classList.remove('final');
+        eventsEl.innerHTML = '<div class="sim-no-events">No chart loaded</div>';
+        historyEl.innerHTML = '';
+        return;
+      }
+
+      stateNameEl.textContent = simState;
+      const isFinal = isFinalState();
+      currentEl.classList.toggle('final', isFinal);
+
+      // Available events.
+      if (isFinal) {
+        eventsEl.innerHTML = '<div class="sim-no-events">Final state reached</div>';
+      } else {
+        const transitions = getAvailableTransitions();
+        if (transitions.length === 0) {
+          eventsEl.innerHTML = '<div class="sim-no-events">No transitions available</div>';
+        } else {
+          eventsEl.innerHTML = transitions.map(t => {
+            const guardHtml = t.guard ? `<span class="guard"> [${t.guard}]</span>` : '';
+            const blocked = t.guard && !guardsPass;
+            return `<button class="event-btn" ${blocked ? 'disabled' : ''}
+                     onclick="simSendEvent('${t.event || ''}', '${t.target}', ${t.guard ? `'${t.guard}'` : 'null'})">
+              ${t.event || '(auto)'}${guardHtml}
+              <span class="target">${t.target}</span>
+            </button>`;
+          }).join('');
+        }
+      }
+
+      // History.
+      if (simHistory.length === 0) {
+        historyEl.innerHTML = '<div class="sim-no-events">No transitions yet</div>';
+      } else {
+        historyEl.innerHTML = simHistory.map((h, i) =>
+          `<div class="history-entry">
+            <span class="from">${h.from}</span>
+            <span class="event"> —${h.event}→ </span>
+            <span class="to">${h.to}</span>
+          </div>`
+        ).join('');
+        // Scroll to bottom.
+        historyEl.scrollTop = historyEl.scrollHeight;
+      }
+    }
+
+    // ── Tab switching ────────────────────────────────────────────────────
+    window.showTab = function(tab, button) {
+      currentViewTab = tab;
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      button.classList.add('active');
+      document.getElementById('graph').style.display = tab === 'graph' ? 'flex' : 'none';
+      document.getElementById('json-output').style.display = tab === 'json' ? 'block' : 'none';
+      document.getElementById('dot-output').style.display = tab === 'dot' ? 'block' : 'none';
+      document.getElementById('mermaid-output').style.display = tab === 'mermaid' ? 'block' : 'none';
+      document.getElementById('diff-output').style.display = tab === 'diff' ? 'block' : 'none';
+      updateMobileStatus();
+    };
+
+    window.showMobilePane = function(pane, button) {
+      currentMobilePane = pane;
+      document.querySelectorAll('.mobile-pane-tab').forEach(tab => tab.classList.remove('active'));
+      if (button) button.classList.add('active');
+
+      document.getElementById('editor-pane').classList.toggle('mobile-active', pane === 'editor');
+      document.getElementById('viz-pane').classList.toggle('mobile-active', pane === 'viz');
+      document.getElementById('sim-pane').classList.toggle('mobile-active', pane === 'sim');
+      updateMobileStatus();
+    };
+
+    // ── Editor input handling ────────────────────────────────────────────
+    document.getElementById('editor').addEventListener('input', () => {
+      clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(render, 300);
+    });
+
+    // ── Init ─────────────────────────────────────────────────────────────
+    initWasm();
+  </script>
+</body>
+</html>

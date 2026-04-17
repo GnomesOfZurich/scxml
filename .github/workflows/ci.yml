@@ -1,0 +1,200 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+  workflow_call:
+
+env:
+  RUST_BACKTRACE: 1
+  CARGO_TERM_COLOR: always
+
+jobs:
+  fmt:
+    name: Format
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+      - run: cargo fmt --all -- --check
+
+  clippy:
+    name: Clippy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo clippy --all-features --all-targets -- -D warnings
+
+  test:
+    name: Test (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Run all tests
+        run: cargo test --all-features --all-targets
+      - name: Run doc-tests
+        run: cargo test --all-features --doc
+
+  bench:
+    name: Benchmark (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            label: linux-x64
+          - os: macos-latest
+            label: macos-arm64
+          - os: windows-latest
+            label: windows-x64
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Run benchmarks
+        run: cargo bench --bench statechart 2>&1 | tee bench-output.txt
+
+      - name: Upload benchmark results
+        uses: actions/upload-artifact@v5
+        with:
+          name: bench-${{ matrix.label }}
+          path: bench-output.txt
+
+  bench-summary:
+    name: Benchmark Summary
+    needs: bench
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download all benchmark results
+        uses: actions/download-artifact@v5
+        with:
+          pattern: bench-*
+          merge-multiple: false
+
+      - name: Print results
+        shell: bash
+        run: |
+          echo "## Benchmark Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          for dir in bench-*; do
+            label="${dir#bench-}"
+            echo "### ${label}" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            cat "${dir}/bench-output.txt" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+          done
+
+  coverage:
+    name: Coverage
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: llvm-tools-preview
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo install cargo-llvm-cov
+      - name: Generate coverage
+        run: |
+          cargo llvm-cov --all-features --summary-only 2>&1 | tee coverage-summary.txt
+          cargo llvm-cov --all-features --html --output-dir coverage-html
+      - name: Extract coverage percentage
+        id: cov
+        run: |
+          # Extract the TOTAL line coverage percentage (10th field = Lines Cover)
+          pct=$(grep TOTAL coverage-summary.txt | awk '{print $10}' | tr -d '%')
+          echo "pct=${pct}" >> $GITHUB_OUTPUT
+          echo "Coverage: ${pct}%"
+      - name: Print summary
+        run: |
+          echo "## Coverage: ${{ steps.cov.outputs.pct }}%" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          cat coverage-summary.txt >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v5
+        with:
+          name: coverage-report
+          path: coverage-html/
+      - name: Update coverage badge
+        if: github.ref == 'refs/heads/main'
+        run: |
+          pct=${{ steps.cov.outputs.pct }}
+          if [ $(echo "$pct >= 80" | bc) -eq 1 ]; then color="brightgreen";
+          elif [ $(echo "$pct >= 60" | bc) -eq 1 ]; then color="yellow";
+          else color="red"; fi
+          ./scripts/generate-badge.sh coverage "${pct}%" "$color" .github/badges/coverage.svg
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git remote set-url origin https://x-access-token:${{ secrets.GHA_CONTENT_PUSH }}@github.com/${{ github.repository }}.git
+          git add .github/badges/coverage.svg
+          git diff --cached --quiet || (git commit -m "ci: update coverage badge to ${pct}%" && git push)
+
+  docs:
+    name: Docs
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Check docs build without warnings
+        run: RUSTDOCFLAGS="-D warnings" cargo doc --all-features --no-deps
+
+  wasm-package:
+    name: WASM Package
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Install wasm-pack
+        run: cargo install wasm-pack
+      - name: Add wasm32 target
+        run: rustup target add wasm32-unknown-unknown
+      - name: Rebuild package and demo copy
+        run: ./scripts/build-wasm-package.sh --scope gnomes --sync-demo
+
+  msrv:
+    name: MSRV (1.87)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@1.87.0
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo check
+
+  audit:
+    name: Security Audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@stable
+      - run: cargo install cargo-audit cargo-deny@0.18.3 --locked cargo-cyclonedx
+      - run: cargo audit --deny warnings
+      - run: cargo deny check licenses sources
+      - name: Generate SBOM (CycloneDX)
+        run: cargo cyclonedx --all --format json
+      - uses: actions/upload-artifact@v5
+        with:
+          name: sbom
+          path: "*.cdx.json"
+          retention-days: 90

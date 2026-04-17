@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Document lifecycle for governed artifacts.
+  A compact approval flow with a review cycle and terminal archival.
+-->
+<scxml xmlns="http://www.w3.org/2005/07/scxml"
+       version="1.0" name="document-lifecycle" initial="draft">
+
+    <state id="draft">
+        <transition event="submit" target="submitted"/>
+    </state>
+
+    <state id="submitted">
+        <transition event="start_review" target="review"/>
+    </state>
+
+    <state id="review">
+        <transition event="approve" target="approved" cond="all_reviewers_complete"/>
+        <transition event="request_changes" target="draft"/>
+    </state>
+
+    <state id="approved">
+        <transition event="archive" target="archived"/>
+    </state>
+
+    <final id="archived"/>
+</scxml>

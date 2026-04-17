@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  New Product Approval (NPA) workflow.
+
+  Standard front-to-back approval chain seen in financial product launches:
+  product team drafts the proposal, specialist reviewers sign off in sequence,
+  a committee gives final approval, and the product is released for issuance.
+  Each stage has an approval gate and a reject-back-to-draft fallback.
+
+  Demonstrates: linear approval chains, named approval guards, deadline-driven
+  reminders (P7D timeout escalates back to draft), and the gnomes:quorum
+  extension for committee voting.
+-->
+<scxml xmlns="http://www.w3.org/2005/07/scxml"
+       xmlns:gnomes="http://gnomes.dev/scxml"
+       version="1.0" name="new-product-approval" initial="draft">
+
+    <datamodel>
+        <data id="product_id"/>
+        <data id="product_class"/>
+        <data id="proposed_by"/>
+    </datamodel>
+
+    <state id="draft">
+        <onentry>
+            <raise event="lifecycle.entered_draft"/>
+        </onentry>
+        <transition event="submit" target="initial_review" cond="has_required_documents"/>
+    </state>
+
+    <state id="initial_review">
+        <transition event="approve" target="legal_review" cond="approval.product"/>
+        <transition event="reject" target="draft"/>
+        <transition event="timeout" target="draft" delay="P7D"/>
+    </state>
+
+    <state id="legal_review">
+        <transition event="approve" target="risk_review" cond="approval.legal"/>
+        <transition event="reject" target="draft"/>
+    </state>
+
+    <state id="risk_review">
+        <transition event="approve" target="committee_review" cond="approval.risk"/>
+        <transition event="reject" target="draft"/>
+    </state>
+
+    <state id="committee_review">
+        <transition event="approve" target="approved"
+                    cond="approval.committee" gnomes:quorum="3"/>
+        <transition event="reject" target="draft"/>
+    </state>
+
+    <state id="approved">
+        <transition event="release" target="released"/>
+    </state>
+
+    <final id="released"/>
+</scxml>

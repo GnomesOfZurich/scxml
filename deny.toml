@@ -1,0 +1,36 @@
+# cargo-deny configuration — CRA supply chain policy
+#
+# Run: cargo deny check
+# CI:  cargo deny check advisories licenses sources
+
+[graph]
+all-features = true
+
+[advisories]
+# Deny any crate with a known security advisory
+db-path = "~/.cargo/advisory-db"
+
+[licenses]
+# Permissive licenses only — no copyleft in the dependency tree
+allow = [
+    "MIT",
+    "Apache-2.0",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "ISC",
+    "Unicode-3.0",
+    "Unicode-DFS-2016",
+    "Zlib",
+]
+
+[bans]
+# No duplicate versions of critical crates
+multiple-versions = "warn"
+wildcards = "deny"
+
+[sources]
+# Only allow crates from crates.io
+unknown-registry = "deny"
+unknown-git = "deny"
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]
+allow-git = []

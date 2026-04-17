@@ -1,0 +1,92 @@
+{
+  "id": "onboarding-approval",
+  "initial": "intake",
+  "context": {
+    "client_id": null,
+    "risk_rating": null
+  },
+  "states": {
+    "intake": {
+      "on": {
+        "submit": {
+          "target": "parallel_checks",
+          "guard": "has_required_documents"
+        },
+        "cancel": "rejected"
+      }
+    },
+    "parallel_checks": {
+      "type": "parallel",
+      "states": {
+        "kyc": {
+          "initial": "kyc_pending",
+          "states": {
+            "kyc_pending": {
+              "on": {
+                "kyc_pass": "kyc_ok",
+                "kyc_fail": "kyc_rejected"
+              }
+            },
+            "kyc_ok": { "type": "final" },
+            "kyc_rejected": { "type": "final" }
+          }
+        },
+        "credit": {
+          "initial": "credit_pending",
+          "states": {
+            "credit_pending": {
+              "on": {
+                "credit_pass": "credit_ok",
+                "credit_fail": "credit_rejected"
+              }
+            },
+            "credit_ok": { "type": "final" },
+            "credit_rejected": { "type": "final" }
+          }
+        },
+        "aml": {
+          "initial": "aml_pending",
+          "states": {
+            "aml_pending": {
+              "on": {
+                "aml_clear": "aml_ok",
+                "aml_flag": "aml_review"
+              }
+            },
+            "aml_review": {
+              "on": {
+                "aml_clear": "aml_ok",
+                "aml_reject": "aml_rejected"
+              }
+            },
+            "aml_ok": { "type": "final" },
+            "aml_rejected": { "type": "final" }
+          }
+        }
+      },
+      "on": {
+        "checks_complete": {
+          "target": "committee_review",
+          "guard": "approval.all_checks_passed"
+        },
+        "checks_failed": "rejected"
+      }
+    },
+    "committee_review": {
+      "on": {
+        "approve": {
+          "target": "approved",
+          "guard": "approval.committee"
+        },
+        "reject": "rejected"
+      }
+    },
+    "approved": {
+      "on": {
+        "activate": "active"
+      }
+    },
+    "active": { "type": "final" },
+    "rejected": { "type": "final" }
+  }
+}

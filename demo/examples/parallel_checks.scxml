@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Payment release screening — sanctions and fraud review run simultaneously.
+  Demonstrates orthogonal regions plus an explicit join and rejection path.
+-->
+<scxml xmlns="http://www.w3.org/2005/07/scxml"
+       version="1.0" name="payment-release-screening" initial="screening">
+
+    <parallel id="screening">
+        <state id="sanctions_screening" initial="sanctions_pending">
+            <state id="sanctions_pending">
+                <transition event="sanctions_clear" target="sanctions_passed"/>
+                <transition event="sanctions_hit" target="sanctions_escalated"/>
+            </state>
+            <state id="sanctions_escalated">
+                <transition event="false_positive" target="sanctions_passed"/>
+                <transition event="confirm_match" target="sanctions_blocked"/>
+            </state>
+            <final id="sanctions_passed"/>
+            <final id="sanctions_blocked"/>
+        </state>
+
+        <state id="fraud_screening" initial="fraud_pending">
+            <state id="fraud_pending">
+                <transition event="risk_low" target="fraud_passed"/>
+                <transition event="risk_high" target="fraud_manual_review"/>
+            </state>
+            <state id="fraud_manual_review">
+                <transition event="analyst_clear" target="fraud_passed"/>
+                <transition event="analyst_block" target="fraud_blocked"/>
+            </state>
+            <final id="fraud_passed"/>
+            <final id="fraud_blocked"/>
+        </state>
+
+        <transition event="checks_complete" target="ready_to_release"
+                    cond="ops.all_clear"/>
+        <transition event="check_failed" target="blocked"/>
+        <transition event="timeout" target="blocked" delay="PT30M"/>
+    </parallel>
+
+    <state id="ready_to_release">
+        <transition event="release" target="released"/>
+    </state>
+
+    <final id="released"/>
+    <final id="blocked"/>
+</scxml>
