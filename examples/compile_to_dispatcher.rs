@@ -85,7 +85,7 @@ fn main() {
 }
 
 fn to_pascal(s: &str) -> String {
-    s.split(|c: char| c == '_' || c == '-')
+    s.split(['_', '-'])
         .map(|part| {
             let mut chars = part.chars();
             match chars.next() {
