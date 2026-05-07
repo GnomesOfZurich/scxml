@@ -90,17 +90,17 @@ For systems that load thousands of workflow definitions on demand, such as admin
                     └──────┬───────┘
           ┌────────────┬───┴───┬────────────┐
           │            │       │            │
-   ┌──────▼───────┐ ┌─▼──┐ ┌──▼──────┐ ┌───▼────────┐
-   │  DOT / Mermaid│ │diff│ │simulate │ │  resolve   │
-   │  JSON export  │ │    │ │         │ │            │
-   └──────────────┘ └────┘ └─────────┘ └───┬────────┘
-                                    ┌──────▼───────┐
-                                    │ ResolvedChart│ ← effective transitions
-                                    └──────┬───────┘
-                                    ┌──────▼───────┐
-                                    │  Your native │
-                                    │  types       │
-                                    └──────────────┘
+   ┌──────▼────────┐ ┌─▼──┐ ┌──▼──────┐ ┌───▼───────┐
+   │  DOT / Mermaid│ │diff│ │simulate │ │  resolve  │
+   │  JSON export  │ │    │ │         │ │           │
+   └───────────────┘ └────┘ └─────────┘ └───┬───────┘
+                                    ┌───────▼───────┐
+                                    │ ResolvedChart │ ← effective transitions
+                                    └───────┬───────┘
+                                    ┌───────▼───────┐
+                                    │  Your native  │
+                                    │  types        │
+                                    └───────────────┘
 ```
 
 **Parse** W3C SCXML XML and JSON into a typed Rust model. Full support for the elements that matter: `<state>`, `<parallel>`, `<final>`, `<history>`, `<transition>`, `<onentry>`, `<onexit>`, `<datamodel>`, and all W3C executable content (`<if>`, `<foreach>`, `<script>`, `<invoke>`, `<cancel>`). Executable content is stored as action descriptors for roundtrip fidelity; nothing is ever evaluated.
