@@ -142,7 +142,7 @@ pub struct ResolvedTransition {
 /// O(n × d) where n = number of states and d = maximum depth.
 ///
 /// Works on any `Statechart` (validated or not). Consumers should
-/// [`validate`](crate::validate) first for well-formedness guarantees.
+/// [`validate`](crate::validate()) first for well-formedness guarantees.
 pub fn resolve(chart: &Statechart) -> ResolvedChart {
     let index = StateIndex::new(chart);
     let mut resolved_states = Vec::new();
