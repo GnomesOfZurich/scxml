@@ -13,7 +13,6 @@ use super::action::Action;
     feature = "rkyv",
     derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
 )]
-#[non_exhaustive]
 pub struct Transition {
     /// Event that triggers this transition. `None` = eventless (always-enabled).
     pub event: Option<CompactString>,
@@ -51,7 +50,6 @@ pub struct Transition {
     feature = "rkyv",
     derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
 )]
-#[non_exhaustive]
 #[serde(rename_all = "snake_case")]
 pub enum TransitionType {
     /// Default: source state is exited and re-entered.

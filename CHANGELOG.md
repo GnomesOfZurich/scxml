@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.0] - 2026-05-07
+
+### Added
+
+- `resolve()` → `ResolvedChart`: pre-computed effective transitions per state
+  (own + inherited from ancestors), resolved initial children, sorted event catalog.
+- `examples/compile_to_dispatcher.rs`: SCXML → Rust match dispatcher.
+
+### Removed
+
+- **Breaking**: `#[non_exhaustive]` removed from all model types. Enables
+  exhaustiveness checking on enum matches and struct literal construction.
+
 ## [0.1.0] - 2026-04-17
 
 First public release. A W3C SCXML statechart library for Rust that parses,

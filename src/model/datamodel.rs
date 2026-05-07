@@ -10,7 +10,6 @@ use serde::{Deserialize, Serialize};
     feature = "rkyv",
     derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
 )]
-#[non_exhaustive]
 pub struct DataModel {
     /// Declared data items.
     pub items: Vec<DataItem>,
@@ -22,7 +21,6 @@ pub struct DataModel {
     feature = "rkyv",
     derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
 )]
-#[non_exhaustive]
 pub struct DataItem {
     /// Variable identifier (`<data id="...">`).
     pub id: CompactString,

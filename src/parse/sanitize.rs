@@ -9,7 +9,6 @@ use crate::model::Statechart;
 
 /// Limits for untrusted SCXML input.
 #[derive(Debug, Clone)]
-#[non_exhaustive]
 pub struct InputLimits {
     /// Maximum input size in bytes (default: 1 MB).
     pub max_input_bytes: usize,

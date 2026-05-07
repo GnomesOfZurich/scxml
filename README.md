@@ -27,7 +27,8 @@ At a glance:
 - `#![forbid(unsafe_code)]`: no `unsafe` anywhere in the crate
 - Zero async runtime, zero web framework, zero platform syscalls in the default build
 - Inert data model: guards are string names, never executed; `<script>` and `<invoke>` are stored verbatim, never evaluated
-- 166 tests + 12 doc-tests, property-based tests via proptest, W3C conformance subset, security model documented
+- `ResolvedChart`: pre-computed effective transitions (including inherited from ancestors), event catalog, resolved hierarchy — the canonical input for code generators, runtimes, and AI tooling
+- 174 tests + 12 doc-tests, property-based tests via proptest, W3C conformance subset, security model documented
 - WASM-compatible (entire crate compiles to `wasm32-unknown-unknown`)
 - Optional rkyv zero-copy serialization for hot-path workflow lookups
 
@@ -80,26 +81,51 @@ For systems that load thousands of workflow definitions on demand, such as admin
 ## What you get
 
 ```
-                   ┌──────────────┐
-                   │  SCXML XML   │  ← interchange / editing
-                   └──────┬───────┘
-                          │ parse
-                   ┌──────▼───────┐
-                   │  Statechart  │  ← validated in-memory model
-                   │  (this crate)│
-                   └──────┬───────┘
-          ┌───────────────┼───────────────┐
-          │               │               │
-   ┌──────▼───────┐ ┌────▼────┐   ┌──────▼───────┐
-   │  Your native │ │  DOT /  │   │   JSON API   │
-   │  types       │ │ Mermaid │   │   / WASM     │
-   │  (compile)   │ │ export  │   │              │
-   └──────────────┘ └─────────┘   └──────────────┘
+                    ┌──────────────┐
+                    │  SCXML XML   │  ← interchange / editing
+                    └──────┬───────┘
+                           │ parse
+                    ┌──────▼───────┐
+                    │  Statechart  │  ← validated in-memory model
+                    └──────┬───────┘
+          ┌────────────┬───┴───┬────────────┐
+          │            │       │            │
+   ┌──────▼───────┐ ┌─▼──┐ ┌──▼──────┐ ┌───▼────────┐
+   │  DOT / Mermaid│ │diff│ │simulate │ │  resolve   │
+   │  JSON export  │ │    │ │         │ │            │
+   └──────────────┘ └────┘ └─────────┘ └───┬────────┘
+                                    ┌──────▼───────┐
+                                    │ ResolvedChart│ ← effective transitions
+                                    └──────┬───────┘
+                                    ┌──────▼───────┐
+                                    │  Your native │
+                                    │  types       │
+                                    └──────────────┘
 ```
 
 **Parse** W3C SCXML XML and JSON into a typed Rust model. Full support for the elements that matter: `<state>`, `<parallel>`, `<final>`, `<history>`, `<transition>`, `<onentry>`, `<onexit>`, `<datamodel>`, and all W3C executable content (`<if>`, `<foreach>`, `<script>`, `<invoke>`, `<cancel>`). Executable content is stored as action descriptors for roundtrip fidelity; nothing is ever evaluated.
 
 **Validate** structural well-formedness (duplicate IDs, orphan targets, initial state existence, final state constraints, compound and parallel region rules) and liveness (BFS reachability from the initial state; deadlock detection with inherited transition awareness). These are the checks that catch the bugs a visual editor hides from you.
+
+**Resolve** a validated statechart into a `ResolvedChart` where all implicit semantics are explicit. Every state gets the full list of effective transitions it can respond to — its own transitions first, then inherited transitions from ancestor states, tagged with `defined_in` so you know where each one came from. Compound states get their initial child resolved. The chart gets a sorted event catalog listing every event name. This is the canonical consumption layer for code generators, runtimes, and tooling:
+
+```rust
+use scxml::{parse_xml, resolve};
+
+let chart = parse_xml(xml).unwrap();
+let resolved = resolve(&chart);
+
+// "review" inherits "cancel" from its parent "workflow"
+let review = resolved.states.iter().find(|s| s.id == "review").unwrap();
+for t in &review.transitions {
+    println!("{:?} → {:?} (from {})", t.event, t.targets, t.defined_in);
+}
+// Some("approve") → ["done"] (from review)
+// Some("reject")  → ["idle"] (from review)
+// Some("cancel")  → ["cancelled"] (from workflow)  ← inherited
+```
+
+The `ResolvedChart` serializes to JSON via serde — use it as the stable input for code generators, AI agents, or any tool that needs to consume the statechart without re-deriving W3C transition semantics. See `examples/compile_to_dispatcher.rs` for a complete example that generates a Rust `match`-based event dispatcher from the resolved form.
 
 **Export** to five formats: SCXML XML (roundtrip), DOT (Graphviz), Mermaid stateDiagram-v2 (renders natively on GitHub), JSON (APIs), and flat state/transition lists (frontend rendering). DOT annotates delays, quorums, and entry/exit actions; Mermaid handles parallel regions with separators. All diagram exporters offer both `to_*()` (returns `String`) and `write_*()` (streams to any `impl fmt::Write`).
 
@@ -159,6 +185,7 @@ between authoring tools and native application types.
 
 ```text
 SCXML/XML -> parse -> Statechart -> compile -> your native runtime types
+                                 -> resolve -> ResolvedChart (optional, for codegen/tooling)
 your native runtime types -> decompile -> Statechart -> export XML -> SCXML/XML
 ```
 
@@ -166,9 +193,10 @@ That gives you a clean cold-path workflow:
 
 - Admin tools and version control store SCXML as the source of truth.
 - Your application compiles validated `Statechart` values into runtime-specific types.
+- For code generators and tooling, `resolve()` pre-computes effective transitions (including inherited from ancestors) into a `ResolvedChart` — the canonical machine-consumable projection.
 - Existing runtime definitions can be decompiled back into `Statechart` for editing, diffing, and export.
 
-The `scxml` crate owns the neutral middle layer: parse, validate, diff, simulate, and export. The compile and decompile steps are left to your application or adapter crate; those rules are domain-specific.
+The `scxml` crate owns the neutral middle layer: parse, validate, resolve, diff, simulate, and export. The compile and decompile steps are left to your application or adapter crate; those rules are domain-specific.
 
 ```rust
 use scxml::{State, Statechart, export, parse_xml, validate};
@@ -328,6 +356,7 @@ src/
   sanitize.rs         - parse_untrusted() for external input
   stats.rs            - StatechartStats metrics
   diff.rs             - semantic comparison (matches states by ID)
+  resolve.rs          - ResolvedChart: effective transitions, event catalog
   model/              - Statechart, State, Transition, Action, DataModel
   parse/              - XML (quick-xml) and JSON (serde) parsers
   validate/           - structural, liveness, semantic checks + ValidationReport
@@ -336,7 +365,7 @@ src/
   xstate/             - XState v5 JSON import/export
   wasm.rs             - wasm-bindgen entry points (uses parse_untrusted)
 tests/                - roundtrip, W3C subset, proptest, rkyv, XState, edge cases, examples
-examples/             - five .scxml examples, plus .xstate.json counterparts for document lifecycle and onboarding
+examples/             - SCXML examples + compile_to_dispatcher.rs (ResolvedChart → Rust dispatcher)
 benches/              - criterion benchmarks for parse/validate/export/rkyv
 demo/                 - single-page HTML live editor + simulator
 ```
@@ -445,8 +474,7 @@ decide what guards mean and what actions do. Same philosophy XState v5 took.
 
 **Can I run this in production?**
 Yes. The library is well-tested, but `0.x` semver means we may still adjust
-the public API. Model types are `#[non_exhaustive]` so additive changes won't
-break you; breaking changes are possible until `1.0`.
+the public API. Breaking changes bump the minor version (`0.1` → `0.2`).
 
 ---
 

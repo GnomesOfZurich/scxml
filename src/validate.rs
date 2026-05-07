@@ -14,7 +14,6 @@ use crate::model::{Statechart, TransitionType};
 /// and metadata for tamper-evident record-keeping. Callers can serialize
 /// this to JSON and store it alongside the workflow definition.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[non_exhaustive]
 pub struct ValidationReport {
     /// Whether the chart passed all validation checks.
     pub valid: bool,

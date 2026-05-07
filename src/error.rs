@@ -1,6 +1,5 @@
 /// All errors produced by this crate.
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
-#[non_exhaustive]
 pub enum ScxmlError {
     // ── Parse errors ────────────────────────────────────────────────
     /// XML parse or sanitization error.

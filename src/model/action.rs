@@ -25,7 +25,6 @@ use serde::{Deserialize, Serialize};
         )),
     )
 )]
-#[non_exhaustive]
 #[allow(missing_docs)] // rkyv-generated ArchivedAction triggers false positive
 pub struct Action {
     /// The kind of action.
@@ -51,7 +50,6 @@ pub struct Action {
         )),
     )
 )]
-#[non_exhaustive]
 #[serde(tag = "type", rename_all = "snake_case")]
 #[allow(missing_docs)] // rkyv-generated ArchivedActionKind triggers false positive
 pub enum ActionKind {
@@ -152,7 +150,6 @@ pub enum ActionKind {
     feature = "rkyv",
     derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
 )]
-#[non_exhaustive]
 pub struct IfBranch {
     /// The guard condition. `None` for `<else>`.
     pub guard: Option<CompactString>,

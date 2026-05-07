@@ -1,6 +1,6 @@
 [package]
 name = "scxml"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2024"
 authors = ["Gnomes"]
 license = "MIT OR Apache-2.0"
@@ -39,17 +39,17 @@ serde = { version = "1.0.228", features = ["derive"] }
 thiserror = "2.0.18"
 
 # Optional — XML parsing
-quick-xml = { version = "0.39.2", optional = true }
+quick-xml = { version = "0.39.3", optional = true }
 
 # Optional — JSON parsing/export
 serde_json = { version = "1.0.149", optional = true }
 
 # Optional — zero-copy serialization
-rkyv = { version = "0.8.15", optional = true }
+rkyv = { version = "0.8.16", optional = true }
 
 # Optional — WebAssembly
-wasm-bindgen = { version = "0.2.118", optional = true }
-js-sys = { version = "0.3.95", optional = true }
+wasm-bindgen = { version = "0.2.121", optional = true }
+js-sys = { version = "0.3.98", optional = true }
 
 [dev-dependencies]
 criterion = { version = "0.8.2", features = ["html_reports"] }

@@ -9,7 +9,6 @@ use crate::model::{State, Statechart};
 
 /// A single difference between two statecharts.
 #[derive(Debug, Clone, PartialEq, Eq)]
-#[non_exhaustive]
 pub struct Difference {
     /// Path to the differing element (e.g. `states.review.transitions\[1\].guard`).
     pub path: String,
@@ -19,7 +18,6 @@ pub struct Difference {
 
 /// The type of difference.
 #[derive(Debug, Clone, PartialEq, Eq)]
-#[non_exhaustive]
 pub enum DiffKind {
     /// A value changed from `old` to `new`.
     Changed {

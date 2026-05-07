@@ -22,7 +22,6 @@ use super::transition::Transition;
         )),
     )
 )]
-#[non_exhaustive]
 pub struct State {
     /// Unique identifier within the statechart (W3C `id` attribute).
     pub id: CompactString,
@@ -58,7 +57,6 @@ pub struct State {
     feature = "rkyv",
     derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
 )]
-#[non_exhaustive]
 #[serde(rename_all = "snake_case")]
 pub enum StateKind {
     /// Leaf state with no children.
@@ -79,7 +77,6 @@ pub enum StateKind {
     feature = "rkyv",
     derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
 )]
-#[non_exhaustive]
 #[serde(rename_all = "snake_case")]
 pub enum HistoryKind {
     /// Remembers only the immediate child.

@@ -13,7 +13,6 @@ use crate::model::{State, Statechart};
     feature = "rkyv",
     derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
 )]
-#[non_exhaustive]
 pub struct FlatState {
     /// State identifier.
     pub id: CompactString,
@@ -33,7 +32,6 @@ pub struct FlatState {
     feature = "rkyv",
     derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
 )]
-#[non_exhaustive]
 pub struct FlatTransition {
     /// Source state id.
     pub source: CompactString,

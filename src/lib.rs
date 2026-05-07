@@ -38,6 +38,8 @@ pub mod error;
 pub mod model;
 /// Parsers for statechart definition formats.
 pub mod parse;
+/// Semantic resolution: pre-computed effective transitions and event catalogs.
+pub mod resolve;
 /// Lightweight test executor for event simulation.
 pub mod simulate;
 /// Summary metrics for a statechart.
@@ -101,6 +103,7 @@ pub use model::{
     Action, ActionKind, Binding, DataItem, DataModel, HistoryKind, IfBranch, State, StateKind,
     Statechart, Transition, TransitionType,
 };
+pub use resolve::{ResolvedChart, ResolvedState, ResolvedTransition, resolve};
 pub use stats::{StatechartStats, stats};
 
 #[cfg(feature = "validate")]

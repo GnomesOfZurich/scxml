@@ -6,7 +6,6 @@ use crate::model::{StateKind, Statechart};
 
 /// Summary metrics for a statechart.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[non_exhaustive]
 pub struct StatechartStats {
     /// Total number of states (including nested).
     pub total_states: usize,

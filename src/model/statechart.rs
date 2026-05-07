@@ -13,7 +13,6 @@ use super::state::State;
     feature = "rkyv",
     derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
 )]
-#[non_exhaustive]
 pub struct Statechart {
     /// Optional name for the statechart (`<scxml name="...">`).
     pub name: Option<CompactString>,
@@ -59,7 +58,6 @@ fn default_xmlns() -> CompactString {
     feature = "rkyv",
     derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
 )]
-#[non_exhaustive]
 #[serde(rename_all = "snake_case")]
 pub enum Binding {
     /// All data items are instantiated at document load time (default per W3C §5.3).
