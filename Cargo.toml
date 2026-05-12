@@ -39,7 +39,7 @@ serde = { version = "1.0.228", features = ["derive"] }
 thiserror = "2.0.18"
 
 # Optional — XML parsing
-quick-xml = { version = "0.39.3", optional = true }
+quick-xml = { version = "0.40.0", optional = true }
 
 # Optional — JSON parsing/export
 serde_json = { version = "1.0.149", optional = true }
