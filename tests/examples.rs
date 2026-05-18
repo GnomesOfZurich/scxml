@@ -189,6 +189,151 @@ fn example_onboarding_approval_xstate() {
     assert!(parallel.transitions.len() >= 2);
 }
 
+/// `resolve()` smoke + invariant check across every example.
+///
+/// Invariants any well-formed `ResolvedChart` must satisfy:
+/// - Every source state appears in the resolved chart (preserves hierarchy)
+/// - `defined_in` of every transition resolves to a real state id
+/// - The `events` catalog is sorted, deduplicated, and a superset of every
+///   transition's `event`
+/// - Top-level resolved states have `parent == None`; nested ones have `parent
+///   == Some(..)`
+/// - `initial_child` (when set) references an actual child id
+#[test]
+fn all_examples_resolve_with_valid_invariants() {
+    use std::collections::HashSet;
+
+    for name in [
+        "new_product_approval.scxml",
+        "document_lifecycle.scxml",
+        "settlement.scxml",
+        "parallel_checks.scxml",
+        "onboarding_approval.scxml",
+    ] {
+        let xml = load_example(name);
+        let chart = parse_xml(&xml).unwrap();
+        validate(&chart).unwrap();
+        let resolved = scxml::resolve(&chart);
+
+        let source_state_count = chart.iter_all_states().count();
+        assert_eq!(
+            resolved.states.len(),
+            source_state_count,
+            "resolved chart drops or invents states for {name}"
+        );
+
+        let state_ids: HashSet<&str> = resolved.states.iter().map(|s| s.id.as_str()).collect();
+        let event_set: HashSet<&str> = resolved.events.iter().map(|e| e.as_str()).collect();
+
+        // Event catalog sorted + deduplicated.
+        let mut sorted = resolved.events.clone();
+        sorted.sort();
+        sorted.dedup();
+        assert_eq!(
+            resolved.events, sorted,
+            "events catalog not sorted+deduped for {name}"
+        );
+
+        for state in &resolved.states {
+            let children_set: HashSet<&str> = state.children.iter().map(|c| c.as_str()).collect();
+
+            if let Some(ref ic) = state.initial_child {
+                assert!(
+                    children_set.contains(ic.as_str()),
+                    "{name}: state {} initial_child {ic} not in children",
+                    state.id
+                );
+            }
+
+            if state.depth == 0 {
+                assert!(
+                    state.parent.is_none(),
+                    "{name}: depth-0 state {} has parent",
+                    state.id
+                );
+            } else {
+                assert!(
+                    state.parent.is_some(),
+                    "{name}: nested state {} missing parent",
+                    state.id
+                );
+            }
+
+            for t in &state.transitions {
+                assert!(
+                    state_ids.contains(t.defined_in.as_str()),
+                    "{name}: transition in state {} has defined_in {} not in chart",
+                    state.id,
+                    t.defined_in
+                );
+                if let Some(ref ev) = t.event {
+                    assert!(
+                        event_set.contains(ev.as_str()),
+                        "{name}: event {ev} missing from catalog",
+                    );
+                }
+            }
+        }
+    }
+}
+
+/// Pin the inheritance contract on the onboarding example: every descendant of
+/// `parallel_checks` should inherit its `checks_complete` and `checks_failed`
+/// exit transitions. This is the most semantically interesting `resolve()`
+/// behavior — making implicit W3C inheritance explicit.
+#[test]
+fn onboarding_descendants_inherit_parallel_exit_transitions() {
+    let xml = load_example("onboarding_approval.scxml");
+    let chart = parse_xml(&xml).unwrap();
+    let resolved = scxml::resolve(&chart);
+
+    // Every descendant of `parallel_checks` (kyc, credit, aml, and their
+    // children) must have `checks_complete` and `checks_failed` in its
+    // effective transitions, with `defined_in == "parallel_checks"`.
+    let descendant_ids: Vec<&str> = resolved
+        .states
+        .iter()
+        .filter(|s| {
+            let mut cursor = s.parent.as_deref();
+            while let Some(p) = cursor {
+                if p == "parallel_checks" {
+                    return true;
+                }
+                cursor = resolved
+                    .states
+                    .iter()
+                    .find(|x| x.id == p)
+                    .and_then(|x| x.parent.as_deref());
+            }
+            false
+        })
+        .map(|s| s.id.as_str())
+        .collect();
+
+    assert!(
+        !descendant_ids.is_empty(),
+        "no descendants found under parallel_checks"
+    );
+
+    for id in &descendant_ids {
+        let state = resolved.states.iter().find(|s| s.id == *id).unwrap();
+        let has_complete = state.transitions.iter().any(|t| {
+            t.event.as_deref() == Some("checks_complete") && t.defined_in == "parallel_checks"
+        });
+        let has_failed = state.transitions.iter().any(|t| {
+            t.event.as_deref() == Some("checks_failed") && t.defined_in == "parallel_checks"
+        });
+        assert!(
+            has_complete,
+            "descendant {id} missing inherited checks_complete from parallel_checks"
+        );
+        assert!(
+            has_failed,
+            "descendant {id} missing inherited checks_failed from parallel_checks"
+        );
+    }
+}
+
 #[test]
 fn all_examples_roundtrip_xml() {
     for name in [

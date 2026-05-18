@@ -29,7 +29,7 @@ Reload the browser page. No server restart needed.
 ## Features
 
 - Live SCXML XML editing with 300ms debounced re-rendering
-- Five output views: Graph (DOT to SVG via viz.js), normalized JSON, DOT source, Mermaid source, and semantic diff against the loaded baseline
+- Six output views: Graph (DOT to SVG via viz.js), normalized JSON, DOT source, Mermaid source, semantic diff against the loaded baseline, and Resolved (the `ResolvedChart` projection with inherited transitions made explicit — what code generators consume)
 - Five built-in examples loaded from the checked-in example set: document lifecycle, NPA, settlement, parallel checks, onboarding approval
 - Review-mode diff: edit an example and inspect the semantic change set against the originally loaded SCXML
 - Restore Baseline button: restore the editor back to the loaded baseline SCXML in one click

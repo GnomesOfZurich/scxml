@@ -64,6 +64,13 @@
                   font-family: monospace; font-size: 0.8rem; white-space: pre; display: none; }
     #json-output { flex: 1; overflow: auto; padding: 1rem; background: #0a0a1a; color: #a8d8ea;
              font-family: monospace; font-size: 0.8rem; white-space: pre; display: none; }
+    #resolved-output { flex: 1; min-height: 0; flex-direction: column; background: #0a0a1a;
+                       color: #a8d8ea; display: none; }
+    #resolved-output .resolved-caption { padding: 0.55rem 1rem; font-size: 0.72rem;
+                                         color: #7a9cc6; background: #11162a;
+                                         border-bottom: 1px solid #1d2b4b; }
+    #resolved-output pre { flex: 1; min-height: 0; overflow: auto; padding: 1rem; margin: 0;
+                           font-family: monospace; font-size: 0.8rem; white-space: pre; }
         #diff-output { flex: 1; overflow: auto; padding: 1rem; background: #0a0a1a; color: #d7e6ef;
              font-size: 0.82rem; display: none; }
         .diff-empty { color: #666; font-style: italic; }
@@ -206,6 +213,7 @@
           <button class="tab" onclick="showTab('dot', this)">DOT</button>
           <button class="tab" onclick="showTab('mermaid', this)">Mermaid</button>
           <button class="tab" onclick="showTab('diff', this)">Diff</button>
+          <button class="tab" onclick="showTab('resolved', this)">Resolved</button>
         </div>
         <div id="baseline-label" class="viz-meta">Baseline: none</div>
       </div>
@@ -214,6 +222,10 @@
       <pre id="dot-output"></pre>
       <pre id="mermaid-output"></pre>
       <div id="diff-output"></div>
+      <div id="resolved-output">
+        <div class="resolved-caption">Effective transitions per state — what code generators consume.</div>
+        <pre id="resolved-pre"></pre>
+      </div>
     </div>
 
     <div class="sim-pane" id="sim-pane">
@@ -337,6 +349,7 @@
       const dotPre = document.getElementById('dot-output');
       const mermaidPre = document.getElementById('mermaid-output');
       const diffDiv = document.getElementById('diff-output');
+      const resolvedPre = document.getElementById('resolved-pre');
 
       try {
         currentJson = wasm.parseXml(xml);
@@ -351,6 +364,11 @@
         jsonPre.textContent = JSON.stringify(parsed, null, 2);
         dotPre.textContent = dot;
         mermaidPre.textContent = mermaid;
+        if (wasm.resolve) {
+          resolvedPre.textContent = JSON.stringify(JSON.parse(wasm.resolve(currentJson)), null, 2);
+        } else {
+          resolvedPre.textContent = '(rebuild WASM package with the latest scxml crate to populate)';
+        }
         currentDiff = computeDiff(xml);
         renderDiff(diffDiv, currentDiff);
 
@@ -372,6 +390,7 @@
         jsonPre.textContent = '';
         dotPre.textContent = '';
         mermaidPre.textContent = '';
+        resolvedPre.textContent = '';
         currentDiff = null;
         renderDiff(diffDiv, null, String(e));
         currentChart = null;
@@ -638,6 +657,7 @@
       document.getElementById('dot-output').style.display = tab === 'dot' ? 'block' : 'none';
       document.getElementById('mermaid-output').style.display = tab === 'mermaid' ? 'block' : 'none';
       document.getElementById('diff-output').style.display = tab === 'diff' ? 'block' : 'none';
+      document.getElementById('resolved-output').style.display = tab === 'resolved' ? 'flex' : 'none';
       updateMobileStatus();
     };
 

@@ -108,3 +108,63 @@ fn rkyv_with_nested_states() {
     assert_eq!(archived.states[0].children.len(), 3);
     assert_eq!(archived.states[0].children[0].id.as_str(), "child_a");
 }
+
+#[test]
+fn rkyv_resolved_chart_roundtrip() {
+    use scxml::resolve::{ArchivedResolvedChart, resolve};
+
+    let chart = Statechart::new(
+        "idle",
+        vec![{
+            let mut parent = State::compound(
+                "parent",
+                "idle",
+                vec![
+                    {
+                        let mut s = State::atomic("idle");
+                        s.transitions.push(Transition::new("start", "running"));
+                        s
+                    },
+                    {
+                        let mut s = State::atomic("running");
+                        s.transitions.push(Transition::new("stop", "idle"));
+                        s
+                    },
+                ],
+            );
+            parent
+                .transitions
+                .push(Transition::new("reset", "idle"));
+            parent
+        }],
+    );
+
+    let resolved = resolve(&chart);
+
+    // Zero-copy access path.
+    let bytes = rkyv::api::high::to_bytes_in::<_, rkyv::rancor::Error>(
+        &resolved,
+        AlignedVec::<16>::new(),
+    )
+    .unwrap();
+    let archived =
+        rkyv::api::high::access::<ArchivedResolvedChart, rkyv::rancor::Error>(&bytes).unwrap();
+
+    assert_eq!(archived.initial.as_str(), "idle");
+    assert_eq!(archived.states.len(), 3); // parent + idle + running
+    assert_eq!(archived.events.len(), 3); // reset, start, stop
+    // events catalog stays sorted in archived form.
+    let archived_events: Vec<&str> = archived.events.iter().map(|e| e.as_str()).collect();
+    assert_eq!(archived_events, vec!["reset", "start", "stop"]);
+
+    // Owned deserialization path.
+    let owned: scxml::resolve::ResolvedChart =
+        rkyv::from_bytes::<scxml::resolve::ResolvedChart, rkyv::rancor::Error>(&bytes).unwrap();
+    let running = owned.states.iter().find(|s| s.id == "running").unwrap();
+    // own "stop" + inherited "reset" from parent.
+    assert_eq!(running.transitions.len(), 2);
+    assert_eq!(running.transitions[0].event.as_deref(), Some("stop"));
+    assert_eq!(running.transitions[0].defined_in.as_str(), "running");
+    assert_eq!(running.transitions[1].event.as_deref(), Some("reset"));
+    assert_eq!(running.transitions[1].defined_in.as_str(), "parent");
+}

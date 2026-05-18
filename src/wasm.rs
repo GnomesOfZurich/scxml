@@ -8,6 +8,7 @@
 //! - `to_mermaid`: export Mermaid stateDiagram-v2 text
 //! - `to_json`: export JSON representation
 //! - `flatten`: produce flat state/transition arrays for rendering
+//! - `resolve`: produce a ResolvedChart with effective transitions per state
 //!
 //! Build with: `wasm-pack build --target web --features wasm`
 
@@ -84,6 +85,19 @@ pub fn wasm_flatten(json: &str) -> Result<String, JsValue> {
         "transitions": transitions,
     });
     serde_json::to_string(&result).map_err(|e| JsValue::from_str(&e.to_string()))
+}
+
+/// Resolve a statechart (passed as JSON) into a `ResolvedChart` JSON: every
+/// state with its effective transitions (own + inherited from ancestors),
+/// resolved initial children, sorted event catalog, and hierarchy metadata.
+/// The canonical machine-consumable projection for code generators and
+/// downstream tooling.
+#[wasm_bindgen(js_name = "resolve")]
+pub fn wasm_resolve(json: &str) -> Result<String, JsValue> {
+    let chart =
+        crate::parse::json::parse_json(json).map_err(|e| JsValue::from_str(&e.to_string()))?;
+    let resolved = crate::resolve::resolve(&chart);
+    serde_json::to_string(&resolved).map_err(|e| JsValue::from_str(&e.to_string()))
 }
 
 /// Parse SCXML XML, validate, and return DOT. Single call for the common
@@ -354,5 +368,18 @@ mod tests {
     fn xml_to_dot_error_on_invalid() {
         let result = crate::parse::xml::parse_xml("<invalid/>");
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn resolve_produces_effective_transitions() {
+        let chart = crate::parse::xml::parse_xml(SIMPLE_XML).unwrap();
+        let resolved = crate::resolve::resolve(&chart);
+        assert_eq!(resolved.initial.as_str(), "a");
+        assert_eq!(resolved.states.len(), 2);
+        assert_eq!(resolved.events, vec!["go"]);
+
+        let json = serde_json::to_string(&resolved).unwrap();
+        assert!(json.contains("\"events\":[\"go\"]"));
+        assert!(json.contains("\"defined_in\":\"a\""));
     }
 }

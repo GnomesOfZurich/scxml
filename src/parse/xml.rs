@@ -1,5 +1,6 @@
 use compact_str::CompactString;
 use quick_xml::Reader;
+use quick_xml::XmlVersion;
 use quick_xml::events::{BytesStart, Event};
 
 use crate::error::{Result, ScxmlError};
@@ -705,9 +706,10 @@ fn attr_str(e: &BytesStart, name: &str) -> Result<Option<CompactString>> {
                 let s = std::str::from_utf8(raw).map_err(|e| ScxmlError::Xml(e.to_string()))?;
                 return Ok(Some(CompactString::from(s)));
             }
-            // Slow path: unescape XML entities.
+            // Slow path: unescape XML entities (normalized per XML 1.0 spec —
+            // matches the prior `unescape_value()` behavior verbatim).
             let value = attr
-                .unescape_value()
+                .normalized_value(XmlVersion::Implicit1_0)
                 .map_err(|e| ScxmlError::Xml(e.to_string()))?;
             return Ok(Some(CompactString::from(value.as_ref())));
         }
