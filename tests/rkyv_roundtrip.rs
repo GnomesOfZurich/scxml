@@ -132,9 +132,7 @@ fn rkyv_resolved_chart_roundtrip() {
                     },
                 ],
             );
-            parent
-                .transitions
-                .push(Transition::new("reset", "idle"));
+            parent.transitions.push(Transition::new("reset", "idle"));
             parent
         }],
     );
@@ -142,11 +140,9 @@ fn rkyv_resolved_chart_roundtrip() {
     let resolved = resolve(&chart);
 
     // Zero-copy access path.
-    let bytes = rkyv::api::high::to_bytes_in::<_, rkyv::rancor::Error>(
-        &resolved,
-        AlignedVec::<16>::new(),
-    )
-    .unwrap();
+    let bytes =
+        rkyv::api::high::to_bytes_in::<_, rkyv::rancor::Error>(&resolved, AlignedVec::<16>::new())
+            .unwrap();
     let archived =
         rkyv::api::high::access::<ArchivedResolvedChart, rkyv::rancor::Error>(&bytes).unwrap();
 
