@@ -4,6 +4,14 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.2] - 2026-07-19
+
+### Changed
+
+- `compact_str` 0.9.0 → 0.10.0 (closes #4).
+- `quick-xml` 0.40.1 → 0.41.0 (closes #3; carries upstream O(N²) fix on `Attributes` iteration + bounded namespace declarations per element).
+- Patch bumps: `serde` 1.0.228 → 1.0.229, `thiserror` 2.0.18 → 2.0.19, `serde_json` 1.0.149 → 1.0.150, `rkyv` 0.8.16 → 0.8.17, `wasm-bindgen` 0.2.121 → 0.2.126, `js-sys` 0.3.98 → 0.3.103.
+
 ## [0.2.1] - 2026-05-18
 
 ### Added

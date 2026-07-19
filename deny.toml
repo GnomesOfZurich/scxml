@@ -15,18 +15,22 @@ db-path = "~/.cargo/advisory-db"
 allow = [
     "MIT",
     "Apache-2.0",
-    "BSD-2-Clause",
-    "BSD-3-Clause",
-    "ISC",
     "Unicode-3.0",
-    "Unicode-DFS-2016",
-    "Zlib",
 ]
 
 [bans]
 # No duplicate versions of critical crates
 multiple-versions = "warn"
 wildcards = "deny"
+
+# Known-accepted transitive duplicates.
+skip = [
+    # serde_derive 1.0.229 and thiserror-impl 2.0.19 (proc-macros) started
+    # pulling syn 3.0 while the rest of the tree stays on syn 2.0. Compile-time
+    # only, not linked into runtime. Revisit when the older proc-macros catch
+    # up to syn 3.
+    { crate = "syn@3.0.0", reason = "proc-macro-only transitive from serde_derive/thiserror-impl; runtime tree stays on syn 2" },
+]
 
 [sources]
 # Only allow crates from crates.io
