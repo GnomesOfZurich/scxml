@@ -1,6 +1,6 @@
 [package]
 name = "scxml"
-version = "0.2.2"
+version = "0.2.3"
 edition = "2024"
 authors = ["Gnomes"]
 license = "MIT OR Apache-2.0"
@@ -36,25 +36,25 @@ wasm = ["dep:wasm-bindgen", "dep:js-sys", "xml", "json", "validate", "export"]
 [dependencies]
 compact_str = { version = "0.10.0", features = ["serde"] }
 serde = { version = "1.0.229", features = ["derive"] }
-thiserror = "2.0.19"
+thiserror = "2.0.20"
 
 # Optional — XML parsing
-quick-xml = { version = "0.41.0", optional = true }
+quick-xml = { version = "0.42.0", optional = true }
 
 # Optional — JSON parsing/export
-serde_json = { version = "1.0.150", optional = true }
+serde_json = { version = "1.0.151", optional = true }
 
 # Optional — zero-copy serialization
-rkyv = { version = "0.8.17", optional = true }
+rkyv = { version = "0.8.18", optional = true }
 
 # Optional — WebAssembly
-wasm-bindgen = { version = "0.2.126", optional = true }
-js-sys = { version = "0.3.103", optional = true }
+wasm-bindgen = { version = "0.2.128", optional = true }
+js-sys = { version = "0.3.105", optional = true }
 
 [dev-dependencies]
 criterion = { version = "0.8.2", features = ["html_reports"] }
 proptest = "1.11.0"
-serde_json = "1.0.150"
+serde_json = "1.0.151"
 pretty_assertions = "1.4.1"
 
 [[bench]]

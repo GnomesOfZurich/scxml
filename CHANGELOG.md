@@ -4,6 +4,17 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.3] - 2026-09-13
+
+### Changed
+
+- `quick-xml` 0.41.0 → 0.42.0. Events and names now carry `&str` rather than `&[u8]`, so the XML parser stops re-deriving UTF-8 from input it was handed as `&str`: 8 `from_utf8` calls and 65 byte-string literals are gone. Internal only; `quick-xml` does not appear in this crate's public API.
+- Patch bumps: `thiserror` 2.0.19 → 2.0.20, `serde_json` 1.0.150 → 1.0.151, `rkyv` 0.8.17 → 0.8.18, `wasm-bindgen` 0.2.126 → 0.2.128, `js-sys` 0.3.103 → 0.3.105.
+
+### Fixed
+
+- Mermaid export drew every transition once per level of nesting: a compound state re-emitted its children's transitions after they had emitted their own, and a parallel state its grandchildren's again. A chart of 21 transitions rendered 58 edges. Each state now emits its own transitions exactly once, held by two regression tests.
+
 ## [0.2.2] - 2026-07-19
 
 ### Changed

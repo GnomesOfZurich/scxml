@@ -108,11 +108,13 @@ fn emit_state_mermaid(
                 out.write_str(&escape_mermaid(&first.id))?;
                 out.write_char('\n')?;
             }
+            // Each child emits its own transitions from its own arm below;
+            // emitting them here as well drew every edge of an atomic child
+            // twice, and every edge of a nested compound child once per
+            // level of nesting — fifty-eight edges for a chart of
+            // twenty-one.
             for child in &state.children {
                 emit_state_mermaid(out, child, depth + 1, cache, limit)?;
-            }
-            for child in &state.children {
-                emit_transitions_mermaid(out, child, depth + 1, cache)?;
             }
             out.write_str(indent)?;
             out.write_str("}\n")?;
@@ -128,10 +130,8 @@ fn emit_state_mermaid(
                     out.write_str(indent)?;
                     out.write_str("  --\n")?;
                 }
+                // The region and everything in it emit their own transitions.
                 emit_state_mermaid(out, child, depth + 1, cache, limit)?;
-                for grandchild in &child.children {
-                    emit_transitions_mermaid(out, grandchild, depth + 1, cache)?;
-                }
             }
             out.write_str(indent)?;
             out.write_str("}\n")?;
@@ -326,5 +326,53 @@ mod tests {
         let mut from_write = String::new();
         write_mermaid(&chart, &mut from_write).unwrap();
         assert_eq!(from_to, from_write);
+    }
+}
+
+#[cfg(test)]
+mod edges_once {
+    use super::to_mermaid;
+    use crate::model::{State, Statechart, Transition};
+
+    /// Every transition is drawn exactly once, however deep it sits.
+    ///
+    /// A compound state used to emit its children's transitions after the
+    /// children had emitted their own, and a parallel state its grandchildren's
+    /// again: an atomic state's edge came out twice, and a nested compound's
+    /// once per level of nesting. A chart of twenty-one transitions rendered
+    /// fifty-eight edges.
+    #[test]
+    fn nested_transitions_are_drawn_once() {
+        let mut leaf = State::atomic("leaf");
+        leaf.transitions.push(Transition::new("go", "other"));
+        let other = State::atomic("other");
+        let mut inner = State::compound("inner", "leaf", vec![leaf, other]);
+        inner.transitions.push(Transition::new("up", "done"));
+        let done = State::final_state("done");
+        let outer = State::compound("outer", "inner", vec![inner, done]);
+        let chart = Statechart::new("outer", vec![outer]);
+
+        let diagram = to_mermaid(&chart);
+        let edges = |needle: &str| diagram.matches(needle).count();
+        assert_eq!(edges("leaf --> other : go"), 1, "{diagram}");
+        assert_eq!(edges("inner --> done : up"), 1, "{diagram}");
+    }
+
+    #[test]
+    fn regions_of_a_parallel_state_draw_their_edges_once() {
+        let mut a1 = State::atomic("a1");
+        a1.transitions.push(Transition::new("tick", "a2"));
+        let a2 = State::atomic("a2");
+        let region_a = State::compound("region_a", "a1", vec![a1, a2]);
+        let mut b1 = State::atomic("b1");
+        b1.transitions.push(Transition::new("tock", "b2"));
+        let b2 = State::atomic("b2");
+        let region_b = State::compound("region_b", "b1", vec![b1, b2]);
+        let both = State::parallel("both", vec![region_a, region_b]);
+        let chart = Statechart::new("both", vec![both]);
+
+        let diagram = to_mermaid(&chart);
+        assert_eq!(diagram.matches("a1 --> a2 : tick").count(), 1, "{diagram}");
+        assert_eq!(diagram.matches("b1 --> b2 : tock").count(), 1, "{diagram}");
     }
 }

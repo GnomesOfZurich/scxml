@@ -26,7 +26,7 @@ pub fn parse_xml(xml: &str) -> Result<Statechart> {
     let mut buf = Vec::new();
     loop {
         match reader.read_event_into(&mut buf) {
-            Ok(Event::Start(ref e)) if e.name().as_ref() == b"scxml" => {
+            Ok(Event::Start(ref e)) if e.name().as_ref() == "scxml" => {
                 return parse_scxml_element(&mut reader, e);
             }
             Ok(Event::Eof) => {
@@ -56,20 +56,20 @@ fn parse_scxml_element(reader: &mut Reader<&[u8]>, start: &BytesStart) -> Result
     loop {
         match reader.read_event_into(&mut buf) {
             Ok(Event::Start(ref e)) => match e.name().as_ref() {
-                b"state" => states.push(parse_state(reader, e, StateKind::Compound)?),
-                b"parallel" => states.push(parse_state(reader, e, StateKind::Parallel)?),
-                b"final" => states.push(parse_state(reader, e, StateKind::Final)?),
-                b"datamodel" => datamodel = parse_datamodel(reader)?,
+                "state" => states.push(parse_state(reader, e, StateKind::Compound)?),
+                "parallel" => states.push(parse_state(reader, e, StateKind::Parallel)?),
+                "final" => states.push(parse_state(reader, e, StateKind::Final)?),
+                "datamodel" => datamodel = parse_datamodel(reader)?,
                 other => {
                     skip_element(reader, other)?;
                 }
             },
             Ok(Event::Empty(ref e)) => match e.name().as_ref() {
-                b"state" => states.push(parse_empty_state(e)?),
-                b"final" => states.push(parse_empty_final(e)?),
+                "state" => states.push(parse_empty_state(e)?),
+                "final" => states.push(parse_empty_final(e)?),
                 _ => {}
             },
-            Ok(Event::End(ref e)) if e.name().as_ref() == b"scxml" => break,
+            Ok(Event::End(ref e)) if e.name().as_ref() == "scxml" => break,
             Ok(Event::Eof) => return Err(ScxmlError::Xml("unexpected EOF in <scxml>".into())),
             Err(e) => return Err(ScxmlError::Xml(e.to_string())),
             _ => {}
@@ -107,31 +107,31 @@ fn parse_state(reader: &mut Reader<&[u8]>, start: &BytesStart, hint: StateKind) 
     let mut children = Vec::new();
     let mut buf = Vec::new();
 
-    let tag_name = start.name().as_ref().to_vec();
+    let tag_name = start.name().as_ref().to_string();
 
     loop {
         match reader.read_event_into(&mut buf) {
             Ok(Event::Start(ref e)) => {
                 match e.name().as_ref() {
-                    b"state" => children.push(parse_state(reader, e, StateKind::Compound)?),
-                    b"parallel" => children.push(parse_state(reader, e, StateKind::Parallel)?),
-                    b"final" => children.push(parse_state(reader, e, StateKind::Final)?),
-                    b"history" => children.push(parse_history(reader, e)?),
-                    b"transition" => transitions.push(parse_transition(reader, e)?),
-                    b"onentry" => on_entry.extend(parse_action_block(reader, b"onentry", 0)?),
-                    b"onexit" => on_exit.extend(parse_action_block(reader, b"onexit", 0)?),
-                    b"initial" => {
+                    "state" => children.push(parse_state(reader, e, StateKind::Compound)?),
+                    "parallel" => children.push(parse_state(reader, e, StateKind::Parallel)?),
+                    "final" => children.push(parse_state(reader, e, StateKind::Final)?),
+                    "history" => children.push(parse_history(reader, e)?),
+                    "transition" => transitions.push(parse_transition(reader, e)?),
+                    "onentry" => on_entry.extend(parse_action_block(reader, "onentry", 0)?),
+                    "onexit" => on_exit.extend(parse_action_block(reader, "onexit", 0)?),
+                    "initial" => {
                         // <initial> element contains a <transition> child
-                        skip_element(reader, b"initial")?;
+                        skip_element(reader, "initial")?;
                     }
-                    b"datamodel" => {
+                    "datamodel" => {
                         let _ = parse_datamodel(reader)?;
                     }
-                    b"invoke" => {
+                    "invoke" => {
                         let invoke_type = attr_str(e, "type")?;
                         let src = attr_str(e, "src")?;
                         let id = attr_str(e, "id")?;
-                        skip_element(reader, b"invoke")?;
+                        skip_element(reader, "invoke")?;
                         on_entry.push(Action {
                             kind: ActionKind::Invoke {
                                 invoke_type,
@@ -146,11 +146,11 @@ fn parse_state(reader: &mut Reader<&[u8]>, start: &BytesStart, hint: StateKind) 
                 }
             }
             Ok(Event::Empty(ref e)) => match e.name().as_ref() {
-                b"state" => children.push(parse_empty_state(e)?),
-                b"final" => children.push(parse_empty_final(e)?),
-                b"transition" => transitions.push(parse_empty_transition(e)?),
-                b"history" => children.push(parse_empty_history(e)?),
-                b"invoke" => {
+                "state" => children.push(parse_empty_state(e)?),
+                "final" => children.push(parse_empty_final(e)?),
+                "transition" => transitions.push(parse_empty_transition(e)?),
+                "history" => children.push(parse_empty_history(e)?),
+                "invoke" => {
                     let invoke_type = attr_str(e, "type")?;
                     let src = attr_str(e, "src")?;
                     let id = attr_str(e, "id")?;
@@ -166,10 +166,7 @@ fn parse_state(reader: &mut Reader<&[u8]>, start: &BytesStart, hint: StateKind) 
             },
             Ok(Event::End(ref e)) if e.name().as_ref() == tag_name => break,
             Ok(Event::Eof) => {
-                return Err(ScxmlError::Xml(format!(
-                    "unexpected EOF in <{}>",
-                    String::from_utf8_lossy(&tag_name)
-                )));
+                return Err(ScxmlError::Xml(format!("unexpected EOF in <{}>", tag_name)));
             }
             Err(e) => return Err(ScxmlError::Xml(e.to_string())),
             _ => {}
@@ -232,13 +229,13 @@ fn parse_history(reader: &mut Reader<&[u8]>, start: &BytesStart) -> Result<State
     let mut buf = Vec::new();
     loop {
         match reader.read_event_into(&mut buf) {
-            Ok(Event::Start(ref e)) if e.name().as_ref() == b"transition" => {
+            Ok(Event::Start(ref e)) if e.name().as_ref() == "transition" => {
                 transitions.push(parse_transition(reader, e)?);
             }
-            Ok(Event::Empty(ref e)) if e.name().as_ref() == b"transition" => {
+            Ok(Event::Empty(ref e)) if e.name().as_ref() == "transition" => {
                 transitions.push(parse_empty_transition(e)?);
             }
-            Ok(Event::End(ref e)) if e.name().as_ref() == b"history" => break,
+            Ok(Event::End(ref e)) if e.name().as_ref() == "history" => break,
             Ok(Event::Eof) => {
                 return Err(ScxmlError::Xml("unexpected EOF in <history>".into()));
             }
@@ -282,7 +279,7 @@ fn parse_transition(reader: &mut Reader<&[u8]>, start: &BytesStart) -> Result<Tr
                     t.actions.push(action);
                 }
             }
-            Ok(Event::End(ref e)) if e.name().as_ref() == b"transition" => break,
+            Ok(Event::End(ref e)) if e.name().as_ref() == "transition" => break,
             Ok(Event::Eof) => {
                 return Err(ScxmlError::Xml("unexpected EOF in <transition>".into()));
             }
@@ -327,7 +324,7 @@ fn build_transition_from_attrs(e: &BytesStart) -> Result<Transition> {
 
 fn parse_action_block(
     reader: &mut Reader<&[u8]>,
-    end_tag: &[u8],
+    end_tag: &str,
     action_depth: usize,
 ) -> Result<Vec<Action>> {
     let mut actions = Vec::new();
@@ -347,10 +344,7 @@ fn parse_action_block(
             }
             Ok(Event::End(ref e)) if e.name().as_ref() == end_tag => break,
             Ok(Event::Eof) => {
-                return Err(ScxmlError::Xml(format!(
-                    "unexpected EOF in <{}>",
-                    String::from_utf8_lossy(end_tag)
-                )));
+                return Err(ScxmlError::Xml(format!("unexpected EOF in <{}>", end_tag)));
             }
             Err(e) => return Err(ScxmlError::Xml(e.to_string())),
             _ => {}
@@ -373,19 +367,19 @@ fn try_parse_action_element(
     }
     let name = e.name();
     match name.as_ref() {
-        b"raise" => {
+        "raise" => {
             let event = attr_str(e, "event")?.ok_or(ScxmlError::MissingAttribute {
                 element: "raise",
                 attribute: "event",
             })?;
-            skip_element(reader, b"raise")?;
+            skip_element(reader, "raise")?;
             Ok(Some(Action::raise(event)))
         }
-        b"send" => {
+        "send" => {
             let event = attr_str(e, "event")?.unwrap_or_default();
             let target = attr_str(e, "target")?;
             let delay = attr_str(e, "delay")?;
-            skip_element(reader, b"send")?;
+            skip_element(reader, "send")?;
             Ok(Some(Action {
                 kind: ActionKind::Send {
                     event,
@@ -394,39 +388,39 @@ fn try_parse_action_element(
                 },
             }))
         }
-        b"assign" => {
+        "assign" => {
             let location = attr_str(e, "location")?.ok_or(ScxmlError::MissingAttribute {
                 element: "assign",
                 attribute: "location",
             })?;
             let expr = attr_str(e, "expr")?.unwrap_or_default();
-            skip_element(reader, b"assign")?;
+            skip_element(reader, "assign")?;
             Ok(Some(Action::assign(location, expr)))
         }
-        b"log" => {
+        "log" => {
             let label = attr_str(e, "label")?;
             let expr = attr_str(e, "expr")?;
-            skip_element(reader, b"log")?;
+            skip_element(reader, "log")?;
             Ok(Some(Action::log(label, expr)))
         }
-        b"cancel" => {
+        "cancel" => {
             let sendid = attr_str(e, "sendid")?.unwrap_or_default();
-            skip_element(reader, b"cancel")?;
+            skip_element(reader, "cancel")?;
             Ok(Some(Action {
                 kind: ActionKind::Cancel { sendid },
             }))
         }
-        b"if" => {
+        "if" => {
             let (branches, actions) = parse_if_block(reader, e, action_depth + 1)?;
             Ok(Some(Action {
                 kind: ActionKind::If { branches, actions },
             }))
         }
-        b"foreach" => {
+        "foreach" => {
             let array = attr_str(e, "array")?.unwrap_or_default();
             let item = attr_str(e, "item")?.unwrap_or_default();
             let index = attr_str(e, "index")?;
-            let actions = parse_action_block(reader, b"foreach", action_depth + 1)?;
+            let actions = parse_action_block(reader, "foreach", action_depth + 1)?;
             Ok(Some(Action {
                 kind: ActionKind::Foreach {
                     array,
@@ -436,17 +430,17 @@ fn try_parse_action_element(
                 },
             }))
         }
-        b"script" => {
-            let content = read_text_content(reader, b"script")?;
+        "script" => {
+            let content = read_text_content(reader, "script")?;
             Ok(Some(Action {
                 kind: ActionKind::Script { content },
             }))
         }
-        b"invoke" => {
+        "invoke" => {
             let invoke_type = attr_str(e, "type")?;
             let src = attr_str(e, "src")?;
             let id = attr_str(e, "id")?;
-            skip_element(reader, b"invoke")?;
+            skip_element(reader, "invoke")?;
             Ok(Some(Action {
                 kind: ActionKind::Invoke {
                     invoke_type,
@@ -457,9 +451,9 @@ fn try_parse_action_element(
         }
         _ => {
             // Unknown element: treat as custom action.
-            let action_name = String::from_utf8_lossy(name.as_ref());
+            let action_name = name.as_ref();
             skip_element(reader, name.as_ref())?;
-            Ok(Some(Action::custom(action_name.as_ref())))
+            Ok(Some(Action::custom(action_name)))
         }
     }
 }
@@ -467,14 +461,14 @@ fn try_parse_action_element(
 fn try_parse_empty_action(e: &BytesStart) -> Result<Option<Action>> {
     let name = e.name();
     match name.as_ref() {
-        b"raise" => {
+        "raise" => {
             let event = attr_str(e, "event")?.ok_or(ScxmlError::MissingAttribute {
                 element: "raise",
                 attribute: "event",
             })?;
             Ok(Some(Action::raise(event)))
         }
-        b"send" => {
+        "send" => {
             let event = attr_str(e, "event")?.unwrap_or_default();
             let target = attr_str(e, "target")?;
             let delay = attr_str(e, "delay")?;
@@ -486,7 +480,7 @@ fn try_parse_empty_action(e: &BytesStart) -> Result<Option<Action>> {
                 },
             }))
         }
-        b"assign" => {
+        "assign" => {
             let location = attr_str(e, "location")?.ok_or(ScxmlError::MissingAttribute {
                 element: "assign",
                 attribute: "location",
@@ -494,18 +488,18 @@ fn try_parse_empty_action(e: &BytesStart) -> Result<Option<Action>> {
             let expr = attr_str(e, "expr")?.unwrap_or_default();
             Ok(Some(Action::assign(location, expr)))
         }
-        b"log" => {
+        "log" => {
             let label = attr_str(e, "label")?;
             let expr = attr_str(e, "expr")?;
             Ok(Some(Action::log(label, expr)))
         }
-        b"cancel" => {
+        "cancel" => {
             let sendid = attr_str(e, "sendid")?.unwrap_or_default();
             Ok(Some(Action {
                 kind: ActionKind::Cancel { sendid },
             }))
         }
-        b"invoke" => {
+        "invoke" => {
             let invoke_type = attr_str(e, "type")?;
             let src = attr_str(e, "src")?;
             let id = attr_str(e, "id")?;
@@ -537,23 +531,23 @@ fn parse_if_block(
     loop {
         match reader.read_event_into(&mut buf) {
             Ok(Event::Start(ref e)) => match e.name().as_ref() {
-                b"elseif" => {
+                "elseif" => {
                     branches.push(action::IfBranch {
                         guard: current_guard.take(),
                         action_count: current_actions.len(),
                     });
                     all_actions.append(&mut current_actions);
                     current_guard = attr_str(e, "cond")?;
-                    skip_element(reader, b"elseif")?;
+                    skip_element(reader, "elseif")?;
                 }
-                b"else" => {
+                "else" => {
                     branches.push(action::IfBranch {
                         guard: current_guard.take(),
                         action_count: current_actions.len(),
                     });
                     all_actions.append(&mut current_actions);
                     current_guard = None;
-                    skip_element(reader, b"else")?;
+                    skip_element(reader, "else")?;
                 }
                 _ => {
                     if let Some(action) = try_parse_action_element(reader, e, action_depth)? {
@@ -562,7 +556,7 @@ fn parse_if_block(
                 }
             },
             Ok(Event::Empty(ref e)) => match e.name().as_ref() {
-                b"elseif" => {
+                "elseif" => {
                     branches.push(action::IfBranch {
                         guard: current_guard.take(),
                         action_count: current_actions.len(),
@@ -570,7 +564,7 @@ fn parse_if_block(
                     all_actions.append(&mut current_actions);
                     current_guard = attr_str(e, "cond")?;
                 }
-                b"else" => {
+                "else" => {
                     branches.push(action::IfBranch {
                         guard: current_guard.take(),
                         action_count: current_actions.len(),
@@ -584,7 +578,7 @@ fn parse_if_block(
                     }
                 }
             },
-            Ok(Event::End(ref e)) if e.name().as_ref() == b"if" => {
+            Ok(Event::End(ref e)) if e.name().as_ref() == "if" => {
                 branches.push(action::IfBranch {
                     guard: current_guard.take(),
                     action_count: current_actions.len(),
@@ -603,23 +597,20 @@ fn parse_if_block(
 }
 
 /// Read text content until the closing tag, returning it as a CompactString.
-fn read_text_content(reader: &mut Reader<&[u8]>, end_tag: &[u8]) -> Result<CompactString> {
+fn read_text_content(reader: &mut Reader<&[u8]>, end_tag: &str) -> Result<CompactString> {
     let mut content = String::new();
     let mut buf = Vec::new();
     loop {
         match reader.read_event_into(&mut buf) {
             Ok(Event::Text(ref t)) => {
-                content.push_str(&String::from_utf8_lossy(t.as_ref()));
+                content.push_str(t.as_ref());
             }
             Ok(Event::CData(ref t)) => {
-                content.push_str(&String::from_utf8_lossy(t.as_ref()));
+                content.push_str(t.as_ref());
             }
             Ok(Event::End(ref e)) if e.name().as_ref() == end_tag => break,
             Ok(Event::Eof) => {
-                return Err(ScxmlError::Xml(format!(
-                    "unexpected EOF in <{}>",
-                    String::from_utf8_lossy(end_tag)
-                )));
+                return Err(ScxmlError::Xml(format!("unexpected EOF in <{}>", end_tag)));
             }
             Err(e) => return Err(ScxmlError::Xml(e.to_string())),
             _ => {}
@@ -635,7 +626,7 @@ fn parse_datamodel(reader: &mut Reader<&[u8]>) -> Result<DataModel> {
 
     loop {
         match reader.read_event_into(&mut buf) {
-            Ok(Event::Start(ref e)) if e.name().as_ref() == b"data" => {
+            Ok(Event::Start(ref e)) if e.name().as_ref() == "data" => {
                 let id = attr_str(e, "id")?.ok_or(ScxmlError::MissingAttribute {
                     element: "data",
                     attribute: "id",
@@ -643,10 +634,10 @@ fn parse_datamodel(reader: &mut Reader<&[u8]>) -> Result<DataModel> {
                 let expr = attr_str(e, "expr")?;
                 let src = attr_str(e, "src")?;
                 // Skip to closing </data>
-                skip_element(reader, b"data")?;
+                skip_element(reader, "data")?;
                 items.push(DataItem { id, expr, src });
             }
-            Ok(Event::Empty(ref e)) if e.name().as_ref() == b"data" => {
+            Ok(Event::Empty(ref e)) if e.name().as_ref() == "data" => {
                 let id = attr_str(e, "id")?.ok_or(ScxmlError::MissingAttribute {
                     element: "data",
                     attribute: "id",
@@ -655,7 +646,7 @@ fn parse_datamodel(reader: &mut Reader<&[u8]>) -> Result<DataModel> {
                 let src = attr_str(e, "src")?;
                 items.push(DataItem { id, expr, src });
             }
-            Ok(Event::End(ref e)) if e.name().as_ref() == b"datamodel" => break,
+            Ok(Event::End(ref e)) if e.name().as_ref() == "datamodel" => break,
             Ok(Event::Eof) => {
                 return Err(ScxmlError::Xml("unexpected EOF in <datamodel>".into()));
             }
@@ -668,7 +659,7 @@ fn parse_datamodel(reader: &mut Reader<&[u8]>) -> Result<DataModel> {
     Ok(DataModel { items })
 }
 
-fn skip_element(reader: &mut Reader<&[u8]>, end_tag: &[u8]) -> Result<()> {
+fn skip_element(reader: &mut Reader<&[u8]>, end_tag: &str) -> Result<()> {
     let mut depth = 1u32;
     let mut buf = Vec::new();
     loop {
@@ -683,7 +674,7 @@ fn skip_element(reader: &mut Reader<&[u8]>, end_tag: &[u8]) -> Result<()> {
             Ok(Event::Eof) => {
                 return Err(ScxmlError::Xml(format!(
                     "unexpected EOF skipping <{}>",
-                    String::from_utf8_lossy(end_tag)
+                    end_tag
                 )));
             }
             Err(e) => return Err(ScxmlError::Xml(e.to_string())),
@@ -693,21 +684,20 @@ fn skip_element(reader: &mut Reader<&[u8]>, end_tag: &[u8]) -> Result<()> {
     }
 }
 
-/// Extract a UTF-8 attribute value from an element.
+/// Extract an attribute value from an element.
 ///
-/// Uses raw byte access and avoids XML entity unescaping for the common case
-/// where attribute values contain no `&` characters (identifiers, state IDs).
+/// Avoids XML entity unescaping for the common case where attribute values
+/// contain no `&` characters (identifiers, state IDs).
 fn attr_str(e: &BytesStart, name: &str) -> Result<Option<CompactString>> {
     for attr in e.attributes().flatten() {
-        if attr.key.as_ref() == name.as_bytes() {
+        if attr.key.as_ref() == name {
             let raw = attr.value.as_ref();
-            // Fast path: no entity references, just convert bytes to str.
-            if !raw.contains(&b'&') {
-                let s = std::str::from_utf8(raw).map_err(|e| ScxmlError::Xml(e.to_string()))?;
-                return Ok(Some(CompactString::from(s)));
+            // Fast path: no entity references, so the borrowed value is final.
+            if !raw.contains('&') {
+                return Ok(Some(CompactString::from(raw)));
             }
-            // Slow path: unescape XML entities (normalized per XML 1.0 spec —
-            // matches the prior `unescape_value()` behavior verbatim).
+            // Slow path: unescape XML entities, normalized per the XML 1.0
+            // spec, matching the prior `unescape_value()` behavior verbatim.
             let value = attr
                 .normalized_value(XmlVersion::Implicit1_0)
                 .map_err(|e| ScxmlError::Xml(e.to_string()))?;

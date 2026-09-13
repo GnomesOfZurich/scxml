@@ -1,45 +1,74 @@
-
 ###############################
 # Git Line Endings            #
 ###############################
 
-# Set default behaviour to automatically normalize line endings.
-* text=auto
+# LF in the repository and LF in the working tree, on every platform.
+#
+# Linux and macOS are where this is written and where it is deployed; Windows is
+# an exception endured to keep the code portable. So the line ending is LF
+# everywhere, and a Windows checkout gets LF too rather than each machine's
+# `core.autocrlf` deciding, a per-machine setting nothing here records.
+#
+# `eol=lf` rather than bare `text=auto` is the difference between normalising
+# what is *stored* and normalising what is *on disk*. The gap between the two is
+# where the damage lives: in one session it produced `sed -i` silently rewriting
+# a file whose CRLF was load-bearing, a shell script committed with a `bash\r`
+# shebang that would have failed on a runner with "bad interpreter", and a
+# warning on nearly every `git add`.
+#
+# This marks nothing as modified. Git compares normalised content, so a CRLF
+# working tree still matches an LF index; files convert as git next touches
+# them.
+* text=auto eol=lf
 
-# Force batch scripts to always use CRLF line endings so that if a repo is accessed
-# in Windows via a file share from Linux, the scripts will work.
-*.{cmd,[cC][mM][dD]} text eol=crlf
-*.{bat,[bB][aA][tT]} text eol=crlf
+# The exceptions that genuinely need CRLF on disk, because their interpreter is
+# a Windows one and they are Windows artefacts by definition.
+*.[cC][mM][dD] text eol=crlf
+*.[bB][aA][tT] text eol=crlf
+*.ps1 text eol=crlf
 
-# Force bash scripts to always use LF line endings so that if a repo is accessed
-# in Unix via a file share from Windows, the scripts will work.
+# Redundant under the rule above, and kept because it is the one that bit.
 *.sh text eol=lf
 
 ###############################
-# Git Large File System (LFS) #
+# Binaries                    #
 ###############################
 
-# Archives
-*.7z filter=lfs diff=lfs merge=lfs -text
-*.br filter=lfs diff=lfs merge=lfs -text
-*.gz filter=lfs diff=lfs merge=lfs -text
-*.tar filter=lfs diff=lfs merge=lfs -text
-*.zip filter=lfs diff=lfs merge=lfs -text
-
-# Documents
-*.pdf filter=lfs diff=lfs merge=lfs -text
-
-# Images
-*.gif filter=lfs diff=lfs merge=lfs -text
-*.ico filter=lfs diff=lfs merge=lfs -text
-*.jpg filter=lfs diff=lfs merge=lfs -text
-*.pdf filter=lfs diff=lfs merge=lfs -text
-*.png filter=lfs diff=lfs merge=lfs -text
-*.psd filter=lfs diff=lfs merge=lfs -text
-*.webp filter=lfs diff=lfs merge=lfs -text
-
-# Fonts
-*.woff2 filter=lfs diff=lfs merge=lfs -text
-
-# Other
-*.exe filter=lfs diff=lfs merge=lfs -text
+# Declared binary so git neither diffs them nor touches their bytes. Without a
+# rule git guesses per file from its contents, and a guess that happens to be
+# right is not a rule.
+#
+# Deliberately NOT `filter=lfs`. Only `fixconnector` actually uses LFS in this
+# workspace: 19 objects, which is why it keeps the filters. Everywhere else the
+# filters were declared and never fired, which is worse than not having them: the
+# first binary somebody adds is converted silently, and from then on the
+# repository needs `git-lfs` to yield its own contents. `scxml` is already
+# half-way into that state, carrying a PNG as an ordinary object under a
+# declaration that says it should be LFS.
+#
+# That matters most where these repositories are going. An escrow recipient
+# without `git-lfs` gets pointer files: the right names, the right count, and
+# none of the bytes.
+#
+# Adopting LFS is a decision with a migration and a quota attached. It should be
+# taken deliberately, for a repository that has a reason, and not inherited by
+# copying this file.
+*.pdf binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.webp binary
+*.psd binary
+*.woff binary
+*.woff2 binary
+*.7z binary
+*.br binary
+*.gz binary
+*.tar binary
+*.zip binary
+*.exe binary
+*.dll binary
+*.duckdb binary
+*.db binary
